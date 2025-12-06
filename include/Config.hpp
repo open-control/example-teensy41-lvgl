@@ -2,55 +2,23 @@
 
 /**
  * @file Config.hpp
- * @brief Hardware and timing configuration
+ * @brief Hardware configuration
  */
 
 #include <array>
-#include <cstddef>
-#include <cstdint>
-
 #include <oc/common/ButtonDef.hpp>
 #include <oc/common/EncoderDef.hpp>
+#include <oc/teensy/Ili9341.hpp>
 
 namespace Config {
 
 // ─────────────────────────────────────────────────────────────────────
-// Display
-// ─────────────────────────────────────────────────────────────────────
-
-constexpr uint16_t DISPLAY_WIDTH = 320;
-constexpr uint16_t DISPLAY_HEIGHT = 240;
-constexpr size_t FRAMEBUFFER_SIZE = DISPLAY_WIDTH * DISPLAY_HEIGHT;
-constexpr size_t DIFFBUFFER_SIZE = 8192;
-
-namespace DisplayPins {
-    constexpr uint8_t CS   = 28;
-    constexpr uint8_t DC   = 0;
-    constexpr uint8_t RST  = 29;
-    constexpr uint8_t MOSI = 26;
-    constexpr uint8_t SCK  = 27;
-    constexpr uint8_t MISO = 1;
-    constexpr uint32_t SPI_SPEED = 40'000'000;
-}
-
-namespace DisplaySettings {
-    constexpr uint8_t ROTATION = 3;
-    constexpr bool INVERT = true;
-    constexpr uint8_t VSYNC_SPACING = 1;
-    constexpr uint8_t DIFF_GAP = 6;
-    constexpr uint8_t IRQ_PRIORITY = 128;
-    constexpr float LATE_START_RATIO = 0.3f;
-}
-
-// ─────────────────────────────────────────────────────────────────────
-// Timing
+// Timing (milliseconds)
 // ─────────────────────────────────────────────────────────────────────
 
 namespace Timing {
-    constexpr uint32_t APP_REFRESH_HZ  = 2000;
-    constexpr uint32_t LVGL_REFRESH_HZ = 100;
-    constexpr uint32_t APP_PERIOD_US   = 1'000'000 / APP_REFRESH_HZ;
-    constexpr uint32_t LVGL_PERIOD_US  = 1'000'000 / LVGL_REFRESH_HZ;
+    constexpr uint32_t APP_HZ  = 2000;   ///< Main loop rate
+    constexpr uint32_t LVGL_HZ = 100;    ///< UI refresh rate
 
     constexpr uint32_t LONG_PRESS_MS = 500;
     constexpr uint32_t DOUBLE_TAP_MS = 300;
@@ -58,40 +26,60 @@ namespace Timing {
 }
 
 // ─────────────────────────────────────────────────────────────────────
+// Display
+// 
+// Uses hal-teensy defaults. Override only what differs from your setup.
+// See oc::teensy::Ili9341Config for all options.
+// ─────────────────────────────────────────────────────────────────────
+
+namespace Display {
+    constexpr uint16_t WIDTH  = 320;
+    constexpr uint16_t HEIGHT = 240;
+    constexpr size_t   BUFFER_SIZE = WIDTH * HEIGHT;
+    constexpr size_t   DIFF_SIZE   = 8192;
+}
+
+// ─────────────────────────────────────────────────────────────────────
 // Encoders
+//
+// EncoderDef fields:
+//   id            - Unique identifier for input binding
+//   pinA, pinB    - Quadrature encoder pins
+//   ppr           - Pulses per revolution (detents × 4 for most encoders)
+//   rangeAngle    - Physical rotation range in degrees
+//   ticksPerEvent - Ticks required to trigger onTurned (1 = every tick)
+//   invertDirection - Reverse rotation direction
 // ─────────────────────────────────────────────────────────────────────
 
 namespace Enc {
     using Def = oc::common::EncoderDef;
 
-    // Project defaults
-    constexpr uint16_t PPR = 24;
-    constexpr uint16_t RANGE = 270;
-    constexpr uint8_t  TICKS = 1;
-    constexpr bool     INVERT = true;
+    constexpr uint16_t PPR   = 24;    ///< 24 pulses/rev (6 detents × 4)
+    constexpr uint16_t RANGE = 270;   ///< 270° rotation range
+    constexpr uint8_t  TICKS = 1;     ///< Event on every tick
+    constexpr bool     INV   = true;  ///< Invert direction
 
-    // Named encoder definitions
-    //                    ID   pinA  pinB
-    constexpr Def LEFT  { 10,  22,   23,   PPR, RANGE, TICKS, INVERT };
-    constexpr Def RIGHT { 11,  18,   19,   PPR, RANGE, TICKS, INVERT };
+    constexpr Def LEFT  { 10, 22, 23, PPR, RANGE, TICKS, INV };
+    constexpr Def RIGHT { 11, 18, 19, PPR, RANGE, TICKS, INV };
 
-    // All encoders for iteration
     constexpr std::array ALL = { LEFT, RIGHT };
 }
 
 // ─────────────────────────────────────────────────────────────────────
 // Buttons
+//
+// ButtonDef fields:
+//   id        - Unique identifier for input binding
+//   pin       - GPIO pin and source (MCU or MUX)
+//   activeLow - true if pressed = LOW
 // ─────────────────────────────────────────────────────────────────────
 
 namespace Btn {
     using Def = oc::common::ButtonDef;
     using Src = oc::common::GpioPin::Source;
 
-    // Named button definitions
-    //                     ID   pin          activeLow
-    constexpr Def MAIN  { 100, {32, Src::MCU}, true };
+    constexpr Def MAIN { 100, {32, Src::MCU}, true };
 
-    // All buttons for iteration
     constexpr std::array ALL = { MAIN };
 }
 
@@ -100,9 +88,9 @@ namespace Btn {
 // ─────────────────────────────────────────────────────────────────────
 
 namespace Midi {
-    constexpr uint8_t CHANNEL    = 0;
-    constexpr uint8_t ENC_CC     = 16;  // CC 16-17 for encoders
-    constexpr uint8_t BTN_CC     = 20;
+    constexpr uint8_t CHANNEL = 0;
+    constexpr uint8_t ENC_CC  = 16;   ///< CC 16+ for encoders
+    constexpr uint8_t BTN_CC  = 20;
 }
 
 }  // namespace Config

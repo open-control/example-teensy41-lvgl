@@ -1,12 +1,6 @@
 /**
  * @file main.cpp
  * @brief Open Control - Teensy 4.1 LVGL Example
- *
- * Demonstrates:
- * - ILI9341 display with async DMA (ILI9341_T4)
- * - LVGL 9.x integration
- * - Encoder/button input handling
- * - MIDI CC output
  */
 
 #include <Arduino.h>
@@ -25,45 +19,31 @@
 #include "Config.hpp"
 #include "ui/DemoView.hpp"
 
+using namespace Config;
+
 // ─────────────────────────────────────────────────────────────────────
-// Static Objects
+// Objects
 // ─────────────────────────────────────────────────────────────────────
 
 static std::optional<oc::teensy::Ili9341> display;
-static std::optional<oc::ui::LVGLBridge> lvglBridge;
+static std::optional<oc::ui::LVGLBridge> lvgl;
 static std::unique_ptr<oc::app::OpenControlApp> app;
 
 // ─────────────────────────────────────────────────────────────────────
-// Initialization
+// Init
 // ─────────────────────────────────────────────────────────────────────
 
 static bool initDisplay() {
-    using namespace Config;
-
     display.emplace(oc::teensy::Ili9341Config{
-        .width = DISPLAY_WIDTH,
-        .height = DISPLAY_HEIGHT,
-        .csPin = DisplayPins::CS,
-        .dcPin = DisplayPins::DC,
-        .rstPin = DisplayPins::RST,
-        .mosiPin = DisplayPins::MOSI,
-        .sckPin = DisplayPins::SCK,
-        .misoPin = DisplayPins::MISO,
-        .spiSpeed = DisplayPins::SPI_SPEED,
-        .rotation = DisplaySettings::ROTATION,
-        .invertDisplay = DisplaySettings::INVERT,
-        .vsyncSpacing = DisplaySettings::VSYNC_SPACING,
-        .diffGap = DisplaySettings::DIFF_GAP,
-        .irqPriority = DisplaySettings::IRQ_PRIORITY,
-        .lateStartRatio = DisplaySettings::LATE_START_RATIO,
-        .refreshRate = Timing::LVGL_REFRESH_HZ * DisplaySettings::VSYNC_SPACING,
-        .framebuffer = Buffers::displayFramebuffer,
-        .diffBuffer1 = Buffers::diffBuffer1,
-        .diffBuffer1Size = sizeof(Buffers::diffBuffer1),
-        .diffBuffer2 = Buffers::diffBuffer2,
-        .diffBuffer2Size = sizeof(Buffers::diffBuffer2)
+        .width = Display::WIDTH,
+        .height = Display::HEIGHT,
+        .refreshRate = Timing::LVGL_HZ,
+        .framebuffer = Buffers::framebuffer,
+        .diffBuffer1 = Buffers::diff1,
+        .diffBuffer1Size = sizeof(Buffers::diff1),
+        .diffBuffer2 = Buffers::diff2,
+        .diffBuffer2Size = sizeof(Buffers::diff2)
     });
-
     return display->init();
 }
 
@@ -71,26 +51,24 @@ static bool initLVGL() {
     lv_init();
     lv_tick_set_cb([]() -> uint32_t { return millis(); });
 
-    lvglBridge.emplace(oc::ui::LVGLBridgeConfig{
-        .width = Config::DISPLAY_WIDTH,
-        .height = Config::DISPLAY_HEIGHT,
-        .buffer1 = Buffers::lvglDrawBuffer,
+    lvgl.emplace(oc::ui::LVGLBridgeConfig{
+        .width = Display::WIDTH,
+        .height = Display::HEIGHT,
+        .buffer1 = Buffers::lvgl,
         .buffer2 = nullptr,
-        .bufferSizeBytes = sizeof(Buffers::lvglDrawBuffer),
+        .bufferSizeBytes = sizeof(Buffers::lvgl),
         .driver = &*display,
         .renderMode = LV_DISPLAY_RENDER_MODE_FULL
     });
 
-    if (!lvglBridge->init()) return false;
+    if (!lvgl->init()) return false;
 
-    lv_timer_set_period(lv_display_get_refr_timer(lvglBridge->getDisplay()),
-                        Config::Timing::LVGL_PERIOD_US / 1000);
+    lv_timer_set_period(lv_display_get_refr_timer(lvgl->getDisplay()),
+                        1000 / Timing::LVGL_HZ);
     return true;
 }
 
 static bool initApp() {
-    using namespace Config;
-
     app.reset(new oc::app::OpenControlApp(
         oc::app::AppBuilder()
             .timeProvider(millis)
@@ -106,41 +84,34 @@ static bool initApp() {
 }
 
 // ─────────────────────────────────────────────────────────────────────
-// Arduino Entry Points
+// Arduino
 // ─────────────────────────────────────────────────────────────────────
 
 void setup() {
     while (!Serial && millis() < 3000) {}
+    Serial.printf("\n[Open Control] App %luHz, LVGL %luHz\n\n", Timing::APP_HZ, Timing::LVGL_HZ);
 
-    Serial.println("\n[Open Control] LVGL Example");
-    Serial.printf("App: %luHz, LVGL: %luHz\n\n",
-                  Config::Timing::APP_REFRESH_HZ, Config::Timing::LVGL_REFRESH_HZ);
-
-    if (!initDisplay()) { Serial.println("[ERROR] Display"); while (true) delay(1000); }
-    Serial.println("[OK] Display");
-
-    if (!initLVGL()) { Serial.println("[ERROR] LVGL"); while (true) delay(1000); }
-    Serial.println("[OK] LVGL");
-
-    if (!initApp()) { Serial.println("[ERROR] App"); while (true) delay(1000); }
-    Serial.println("[OK] App\n");
+    if (!initDisplay()) { Serial.println("[ERROR] Display"); while(1); }
+    if (!initLVGL())    { Serial.println("[ERROR] LVGL");    while(1); }
+    if (!initApp())     { Serial.println("[ERROR] App");     while(1); }
+    
+    Serial.println("[OK] Ready\n");
 }
 
 void loop() {
-    static uint32_t lastUs = 0;
-    static uint32_t lvglAccum = 0;
+    static uint32_t lastUs = 0, lvglUs = 0;
+    constexpr uint32_t appPeriod  = 1'000'000 / Timing::APP_HZ;
+    constexpr uint32_t lvglPeriod = 1'000'000 / Timing::LVGL_HZ;
 
-    uint32_t nowUs = micros();
-    uint32_t deltaUs = nowUs - lastUs;
-
-    if (deltaUs < Config::Timing::APP_PERIOD_US) return;
-    lastUs = nowUs;
+    uint32_t now = micros();
+    if (now - lastUs < appPeriod) return;
+    lastUs = now;
 
     app->update();
 
-    lvglAccum += deltaUs;
-    if (lvglAccum >= Config::Timing::LVGL_PERIOD_US) {
-        lvglAccum = 0;
-        lvglBridge->refresh();
+    lvglUs += appPeriod;
+    if (lvglUs >= lvglPeriod) {
+        lvglUs = 0;
+        lvgl->refresh();
     }
 }

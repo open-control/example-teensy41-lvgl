@@ -2,27 +2,18 @@
 
 /**
  * @file Buffers.hpp
- * @brief Memory buffer declarations for display and LVGL
- *
- * All large buffers are allocated in DMAMEM (Teensy 4.x RAM2)
- * to keep RAM1 free for stack and fast variables.
+ * @brief DMAMEM buffers for display and LVGL
  */
 
 #include <Arduino.h>
 #include <lvgl.h>
-
 #include "Config.hpp"
 
 namespace Buffers {
 
-// Display framebuffer (ILI9341_T4 internal buffer)
-inline DMAMEM uint16_t displayFramebuffer[Config::DISPLAY_WIDTH * Config::DISPLAY_HEIGHT];
-
-// Differential update buffers (ILI9341_T4)
-inline DMAMEM uint8_t diffBuffer1[Config::DIFFBUFFER_SIZE];
-inline DMAMEM uint8_t diffBuffer2[Config::DIFFBUFFER_SIZE];
-
-// LVGL draw buffer
-inline DMAMEM lv_color_t lvglDrawBuffer[Config::DISPLAY_WIDTH * Config::DISPLAY_HEIGHT];
+inline DMAMEM uint16_t  framebuffer[Config::Display::BUFFER_SIZE];
+inline DMAMEM uint8_t   diff1[Config::Display::DIFF_SIZE];
+inline DMAMEM uint8_t   diff2[Config::Display::DIFF_SIZE];
+inline DMAMEM lv_color_t lvgl[Config::Display::BUFFER_SIZE];
 
 }  // namespace Buffers
