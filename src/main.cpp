@@ -9,8 +9,7 @@
 
 #include <oc/app/AppBuilder.hpp>
 #include <oc/app/OpenControlApp.hpp>
-#include <oc/teensy/ButtonController.hpp>
-#include <oc/teensy/EncoderController.hpp>
+#include <oc/teensy/Teensy.hpp>
 #include <oc/teensy/Ili9341.hpp>
 #include <oc/teensy/UsbMidi.hpp>
 #include <oc/ui/bridge/LVGLBridge.hpp>
@@ -69,12 +68,14 @@ static bool initLVGL() {
 }
 
 static bool initApp() {
+    using namespace oc::teensy;
+
     app.reset(new oc::app::OpenControlApp(
         oc::app::AppBuilder()
-            .timeProvider(millis)
-            .midi(std::make_unique<oc::teensy::UsbMidi>())
-            .encoders(std::make_unique<oc::teensy::EncoderController<Enc::ALL.size()>>(Enc::ALL))
-            .buttons(std::make_unique<oc::teensy::ButtonController<Btn::ALL.size()>>(Btn::ALL, nullptr, Timing::DEBOUNCE_MS))
+            .timeProvider(defaultTimeProvider)
+            .midi(std::make_unique<UsbMidi>())
+            .encoders(makeEncoderController(Enc::ALL))
+            .buttons(makeButtonController(Btn::ALL, nullptr, Timing::DEBOUNCE_MS))
             .inputConfig({.longPressMs = Timing::LONG_PRESS_MS, .doubleTapWindowMs = Timing::DOUBLE_TAP_MS})
             .build()
     ));

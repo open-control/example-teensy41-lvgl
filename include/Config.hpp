@@ -62,7 +62,7 @@ namespace Display {
     // constexpr uint32_t SPI_SPEED = 40'000'000;
 
     // ── Display orientation ──
-    // Default: rotation=3 (landscape, USB right), invertDisplay=true
+    // Default: rotation=3 (landscape), invertDisplay=true
     // constexpr uint8_t ROTATION = 3;      // 0-3
     // constexpr bool INVERT = true;
 
@@ -73,11 +73,11 @@ namespace Display {
     // lateStartRatio: late start optimization (0.2-0.5)
     // refreshRate: target Hz for display sync
     //
-    // constexpr uint8_t VSYNC_SPACING = 1;
+    constexpr uint8_t VSYNC_SPACING = 2;
     // constexpr uint8_t DIFF_GAP = 6;
     // constexpr uint8_t IRQ_PRIORITY = 128;
     // constexpr float LATE_START = 0.3f;
-    // constexpr uint8_t REFRESH_HZ = 60;
+    constexpr uint8_t REFRESH_HZ = Timing::LVGL_HZ * VSYNC_SPACING;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -129,7 +129,7 @@ namespace Enc {
 
 namespace Btn {
     using Def = oc::common::ButtonDef;
-    using Src = oc::common::GpioPin::Source;
+    using Src = oc::hal::GpioPin::Source;
 
     //               ID    pin           activeLow
     constexpr Def MAIN { 100, {32, Src::MCU}, true };

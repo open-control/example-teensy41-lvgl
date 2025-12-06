@@ -1,11 +1,5 @@
 {
-    // Disable C/C++ IntelliSense (use clangd instead)
-    "C_Cpp.intelliSenseEngine": "disabled",
 
-    // Clangd settings
-    "clangd.arguments": [
-        "--query-driver=**/arm-none-eabi-*"
-    ],
 
     // Clang-format settings
     "C_Cpp.formatting": "clangFormat",

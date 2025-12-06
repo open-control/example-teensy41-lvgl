@@ -14,6 +14,8 @@
 
 #include <Arduino.h>
 #include <lvgl.h>
+#include <string>
+
 #include <oc/api/ControlAPI.hpp>
 #include <oc/context/IContext.hpp>
 
@@ -21,13 +23,29 @@
 
 namespace ui {
 
+namespace Enc = Config::Enc;
+namespace Btn = Config::Btn;
+namespace Midi = Config::Midi;
+
 /**
  * @class DemoView
  * @brief Interactive encoder/button demo with LVGL UI and MIDI output
  */
 class DemoView : public oc::context::IContext {
+
+    struct Colors {
+        static constexpr uint32_t LABEL_DIM = 0x888888;
+        static constexpr uint32_t LABEL_MUTED = 0x555555;
+        static constexpr uint32_t SLIDER_BG = 0x333355;
+        static constexpr uint32_t SLIDER_FILL = 0x6666ff;
+        static constexpr uint32_t SLIDER_KNOB = 0x9999ff;
+    };
+
 public:
-    static constexpr size_t ENC_COUNT = Config::Enc::ALL.size();
+    static constexpr size_t ENC_COUNT = Enc::ALL.size();
+    static constexpr int32_t SLIDER_MAX = 100;
+    static constexpr uint8_t MIDI_MAX = 127;
+    static constexpr float DEFAULT_VALUE = 0.5f;
 
     // ─────────────────────────────────────────────────────────────────
     // IContext
@@ -101,26 +119,24 @@ private:
 
             // Label
             auto* name = lv_label_create(row);
-            char buf[12];
-            snprintf(buf, sizeof(buf), "Enc %zu", i + 1);
-            lv_label_set_text(name, buf);
-            lv_obj_set_style_text_color(name, lv_color_hex(0x888888), 0);
+            lv_label_set_text(name, ("Enc " + std::to_string(i + 1)).c_str());
+            lv_obj_set_style_text_color(name, lv_color_hex(Colors::LABEL_DIM), 0);
             lv_obj_set_width(name, 50);
 
             // Slider
             sliders_[i] = lv_slider_create(row);
             lv_obj_set_flex_grow(sliders_[i], 1);
             lv_obj_set_height(sliders_[i], 12);
-            lv_slider_set_range(sliders_[i], 0, 100);
-            lv_slider_set_value(sliders_[i], 50, LV_ANIM_OFF);
-            lv_obj_set_style_bg_color(sliders_[i], lv_color_hex(0x333355), LV_PART_MAIN);
-            lv_obj_set_style_bg_color(sliders_[i], lv_color_hex(0x6666ff), LV_PART_INDICATOR);
-            lv_obj_set_style_bg_color(sliders_[i], lv_color_hex(0x9999ff), LV_PART_KNOB);
+            lv_slider_set_range(sliders_[i], 0, SLIDER_MAX);
+            lv_slider_set_value(sliders_[i], int32_t(DEFAULT_VALUE * SLIDER_MAX), LV_ANIM_OFF);
+            lv_obj_set_style_bg_color(sliders_[i], lv_color_hex(Colors::SLIDER_BG), LV_PART_MAIN);
+            lv_obj_set_style_bg_color(sliders_[i], lv_color_hex(Colors::SLIDER_FILL), LV_PART_INDICATOR);
+            lv_obj_set_style_bg_color(sliders_[i], lv_color_hex(Colors::SLIDER_KNOB), LV_PART_KNOB);
             lv_obj_set_style_pad_all(sliders_[i], 0, LV_PART_KNOB);
 
             // Value
             labels_[i] = lv_label_create(row);
-            lv_label_set_text(labels_[i], "50%");
+            lv_label_set_text(labels_[i], (std::to_string(int(DEFAULT_VALUE * SLIDER_MAX)) + "%").c_str());
             lv_obj_set_style_text_color(labels_[i], lv_color_white(), 0);
             lv_obj_set_width(labels_[i], 40);
             lv_obj_set_style_text_align(labels_[i], LV_TEXT_ALIGN_RIGHT, 0);
@@ -130,8 +146,31 @@ private:
     void createFooter(lv_obj_t* parent) {
         auto* lbl = lv_label_create(parent);
         lv_label_set_text(lbl, "Button: reset");
-        lv_obj_set_style_text_color(lbl, lv_color_hex(0x555555), 0);
+        lv_obj_set_style_text_color(lbl, lv_color_hex(Colors::LABEL_MUTED), 0);
         lv_obj_set_style_text_font(lbl, &lv_font_montserrat_12, 0);
+    }
+
+    // ─────────────────────────────────────────────────────────────────
+    // Handlers
+    // ─────────────────────────────────────────────────────────────────
+
+    void setEncoderUI(size_t i, float value) {
+        lv_slider_set_value(sliders_[i], int32_t(value * SLIDER_MAX), LV_ANIM_ON);
+        lv_label_set_text(labels_[i], (std::to_string(int(value * SLIDER_MAX)) + "%").c_str());
+    }
+
+    void updateEncoder(size_t i, float value) {
+        api_->sendCC(Midi::CHANNEL, Midi::ENC_CC + i, uint8_t(value * MIDI_MAX));
+        setEncoderUI(i, value);
+    }
+
+    void resetEncoders() {
+        api_->sendCC(Midi::CHANNEL, Midi::BTN_CC, MIDI_MAX);
+        for (size_t i = 0; i < ENC_COUNT; ++i) { setEncoderUI(i, DEFAULT_VALUE); }
+    }
+
+    void releaseButton() {
+        api_->sendCC(Midi::CHANNEL, Midi::BTN_CC, 0);
     }
 
     // ─────────────────────────────────────────────────────────────────
@@ -139,32 +178,12 @@ private:
     // ─────────────────────────────────────────────────────────────────
 
     void bindInputs() {
-        using namespace Config;
-
-        // Encoders -> UI + MIDI
         for (size_t i = 0; i < ENC_COUNT; ++i) {
-            api_->onTurned(Enc::ALL[i].id, [this, i](float v) {
-                int pct = int(v * 100);
-                lv_slider_set_value(sliders_[i], pct, LV_ANIM_ON);
-                char buf[8];
-                snprintf(buf, sizeof(buf), "%d%%", pct);
-                lv_label_set_text(labels_[i], buf);
-                api_->sendCC(Midi::CHANNEL, Midi::ENC_CC + i, uint8_t(v * 127));
-            });
+            api_->onTurned(Enc::ALL[i].id, [this, i](float v) { updateEncoder(i, v); });
         }
 
-        // Button -> reset + MIDI
-        api_->onPressed(Btn::MAIN.id, [this]() {
-            for (size_t i = 0; i < ENC_COUNT; ++i) {
-                lv_slider_set_value(sliders_[i], 50, LV_ANIM_ON);
-                lv_label_set_text(labels_[i], "50%");
-            }
-            api_->sendCC(Midi::CHANNEL, Midi::BTN_CC, 127);
-        });
-
-        api_->onReleased(Btn::MAIN.id, [this]() {
-            api_->sendCC(Midi::CHANNEL, Midi::BTN_CC, 0);
-        });
+        api_->onPressed(Btn::MAIN.id, [this] { resetEncoders(); });
+        api_->onReleased(Btn::MAIN.id, [this] { releaseButton(); });
     }
 
     // ─────────────────────────────────────────────────────────────────
