@@ -17,7 +17,7 @@
 #include <oc/api/ControlAPI.hpp>
 #include <oc/context/IContext.hpp>
 
-#include "../Config.hpp"
+#include "Config.hpp"
 
 namespace ui {
 
