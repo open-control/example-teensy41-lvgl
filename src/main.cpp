@@ -14,7 +14,7 @@
 #include <oc/teensy/Teensy.hpp>
 #include <oc/teensy/UsbMidi.hpp>
 
-#include "ui/DemoView.hpp"
+#include "context/StandaloneContext.hpp"
 
 using namespace Config;
 
@@ -53,7 +53,7 @@ static bool initApp() {
               .inputConfig(Input::CONFIG)
               .build();
 
-    app->registerContext<ui::DemoView>("demo");
+    app->registerContext<context::StandaloneContext>(ContextID::STANDALONE);
     return app->begin();
 }
 

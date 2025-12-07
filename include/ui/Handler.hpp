@@ -2,97 +2,113 @@
 
 /**
  * @file Handler.hpp
- * @brief Input handler - connects Config bindings to UI actions
+ * @brief Input handler - binds hardware controls to UI views
  *
- * Automatically binds all controls declared in Config.hpp to their
- * corresponding UI and MIDI actions. Adapts to the number of encoders
- * and buttons defined in the configuration.
+ * Architecture:
+ *   Config.hpp  -->  Handler  -->  View
+ *   (hardware)      (binding)     (display)
+ *
+ * Responsibilities:
+ *   - Bind encoders to MIDI CC + UI update
+ *   - Bind buttons to actions (reset, etc.)
+ *   - Sync encoder positions to prevent value jumps
  */
 
-#include <oc/api/ControlAPI.hpp>
-
 #include "Config.hpp"
+
+#include <oc/api/ButtonAPI.hpp>
+#include <oc/api/EncoderAPI.hpp>
+#include <oc/api/MidiAPI.hpp>
 
 namespace ui {
 
 namespace Enc  = Config::Enc;
-namespace Btn  = Config::Btn;
 namespace Bind = Config::Bind;
 
 /**
- * @brief Input handler template - binds controls to a view
+ * @brief Binds hardware controls to a view
  *
- * @tparam View Type with setEncoder(index, value), onButtonPress(), onButtonRelease()
- *
- * Usage:
- *   Handler<DemoView> handler(api, view);
- *   handler.bind();
+ * @tparam View Must implement:
+ *   - static constexpr float DEFAULT_VALUE
+ *   - void setEncoder(size_t index, float value)
+ *   - void resetEncoderPositions()
  */
 template <typename View>
 class Handler {
 public:
     static constexpr size_t ENC_COUNT = Enc::ALL.size();
-    static constexpr size_t BTN_COUNT = Btn::ALL.size();
 
-    Handler(oc::api::ControlAPI& api, View& view)
-        : api_(api), view_(view) {}
+    Handler(oc::api::ButtonAPI& buttons, oc::api::EncoderAPI& encoders,
+            oc::api::MidiAPI& midi, View& view)
+        : buttons_(buttons), encoders_(encoders), midi_(midi), view_(view) {}
 
-    /**
-     * @brief Bind all inputs from Config to view actions
-     */
+    /// Bind all configured inputs
     void bind() {
         bindEncoders();
         bindButtons();
     }
 
 private:
-    // ─────────────────────────────────────────────────────────────────
-    // Encoder bindings
-    // ─────────────────────────────────────────────────────────────────
+    oc::api::ButtonAPI& buttons_;
+    oc::api::EncoderAPI& encoders_;
+    oc::api::MidiAPI& midi_;
+    View& view_;
+
+    // ───────────────────────────────────────────────────────────────────
+    // Encoders: turn -> MIDI CC + UI
+    // ───────────────────────────────────────────────────────────────────
 
     void bindEncoders() {
-        // Bind each encoder declared in Config::Enc::ALL
         for (size_t i = 0; i < ENC_COUNT; ++i) {
-            api_.onTurned(Enc::ALL[i].id, [this, i](float value) {
-                onEncoderTurn(i, value);
-            });
+            encoders_.encoder(Enc::ALL[i].id)
+                .turn()
+                .then([this, i](float value) {
+                    sendEncoderCC(i, value);
+                    view_.setEncoder(i, value);
+                });
         }
     }
 
-    void onEncoderTurn(size_t index, float value) {
-        // Send MIDI CC (base CC + index)
-        api_.sendCC(
+    void sendEncoderCC(size_t index, float value) {
+        midi_.sendCC(
             Bind::Midi::ENC_LEFT_CH,
             Bind::Midi::ENC_LEFT_CC + index,
             uint8_t(value * Bind::Midi::VALUE_MAX)
         );
-
-        // Update view
-        view_.setEncoder(index, value);
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Button bindings
-    // ─────────────────────────────────────────────────────────────────
+    // ───────────────────────────────────────────────────────────────────
+    // Buttons: press/release -> MIDI CC + actions
+    // ───────────────────────────────────────────────────────────────────
 
     void bindButtons() {
-        // Main button - press/release
-        api_.onPressed(Bind::BTN_MAIN, [this] {
-            api_.sendCC(Bind::Midi::BTN_MAIN_CH, Bind::Midi::BTN_MAIN_CC, Bind::Midi::VALUE_ON);
-            view_.resetEncoderPositions();
-        });
+        // Main button: reset all encoders on press
+        buttons_.button(Bind::BTN_MAIN)
+            .press()
+            .then([this] {
+                sendButtonCC(Bind::Midi::VALUE_ON);
+                resetAllEncoders();
+            });
 
-        api_.onReleased(Bind::BTN_MAIN, [this] {
-            api_.sendCC(Bind::Midi::BTN_MAIN_CH, Bind::Midi::BTN_MAIN_CC, Bind::Midi::VALUE_OFF);
-        });
+        buttons_.button(Bind::BTN_MAIN)
+            .release()
+            .then([this] {
+                sendButtonCC(Bind::Midi::VALUE_OFF);
+            });
     }
 
-    // ─────────────────────────────────────────────────────────────────
-    // Members
-    // ─────────────────────────────────────────────────────────────────
+    void sendButtonCC(uint8_t value) {
+        midi_.sendCC(Bind::Midi::BTN_MAIN_CH, Bind::Midi::BTN_MAIN_CC, value);
+    }
 
-    oc::api::ControlAPI& api_;
-    View& view_;
+    void resetAllEncoders() {
+        // Sync hardware positions (prevents jump on next turn)
+        for (size_t i = 0; i < ENC_COUNT; ++i) {
+            encoders_.setPosition(Enc::ALL[i].id, View::DEFAULT_VALUE);
+        }
+        // Update UI
+        view_.resetEncoderPositions();
+    }
 };
 
 }  // namespace ui

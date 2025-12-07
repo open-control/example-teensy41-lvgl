@@ -41,6 +41,26 @@ constexpr uint8_t DEBOUNCE_MS = 5;  // Increase to 10-20 if buttons trigger mult
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// CONTEXT IDS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * User-defined context identifiers.
+ *
+ * Used for type-safe context registration and switching.
+ * Values must be < 16 (MAX_CONTEXTS).
+ *
+ * _COUNT is optional but enables compile-time array sizing.
+ */
+enum class ContextID : uint8_t {
+    STANDALONE = 0,
+    // Add more contexts here:
+    // BITWIG = 1,
+    // ABLETON = 2,
+    _COUNT
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // DISPLAY
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -91,7 +111,7 @@ constexpr size_t DIFF_SIZE = CONFIG.recommendedDiffSize();
  * Call init() once after display is initialized.
  *
  * Memory usage (320x240 RGB565):
- *   - FULL mode:    ~150 KB (best quality, no flicker)
+ *   - FULL mode:    ~150 KB (best quality and performances, no flicker)
  *   - PARTIAL mode: ~20-40 KB (may flicker on fast animations)
  */
 namespace LVGL {

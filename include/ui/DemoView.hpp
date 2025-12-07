@@ -62,7 +62,6 @@ public:
     void update() override {}
     void cleanup() override {}
     const char* getName() const override { return "Demo"; }
-    const char* getId() const override { return "demo"; }
 
     // ─────────────────────────────────────────────────────────────────
     // Public interface (called by Handler)
