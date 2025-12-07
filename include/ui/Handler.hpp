@@ -22,9 +22,6 @@
 
 namespace ui {
 
-namespace Enc  = Config::Enc;
-namespace Bind = Config::Bind;
-
 /**
  * @brief Binds hardware controls to a view
  *
@@ -36,7 +33,7 @@ namespace Bind = Config::Bind;
 template <typename View>
 class Handler {
 public:
-    static constexpr size_t ENC_COUNT = Enc::ALL.size();
+    static constexpr size_t ENC_COUNT = Config::Encoder::ALL.size();
 
     Handler(oc::api::ButtonAPI& buttons, oc::api::EncoderAPI& encoders,
             oc::api::MidiAPI& midi, View& view)
@@ -60,7 +57,7 @@ private:
 
     void bindEncoders() {
         for (size_t i = 0; i < ENC_COUNT; ++i) {
-            encoders_.encoder(Enc::ALL[i].id)
+            encoders_.encoder(Config::Encoder::ALL[i].id)
                 .turn()
                 .then([this, i](float value) {
                     sendEncoderCC(i, value);
@@ -71,9 +68,9 @@ private:
 
     void sendEncoderCC(size_t index, float value) {
         midi_.sendCC(
-            Bind::Midi::ENC_LEFT_CH,
-            Bind::Midi::ENC_LEFT_CC + index,
-            uint8_t(value * Bind::Midi::VALUE_MAX)
+            Config::Binding::Midi::ENC_LEFT_CH,
+            Config::Binding::Midi::ENC_LEFT_CC + index,
+            uint8_t(value * Config::Binding::Midi::VALUE_MAX)
         );
     }
 
@@ -83,28 +80,28 @@ private:
 
     void bindButtons() {
         // Main button: reset all encoders on press
-        buttons_.button(Bind::BTN_MAIN)
+        buttons_.button(Config::Binding::BTN_MAIN)
             .press()
             .then([this] {
-                sendButtonCC(Bind::Midi::VALUE_ON);
+                sendButtonCC(Config::Binding::Midi::VALUE_ON);
                 resetAllEncoders();
             });
 
-        buttons_.button(Bind::BTN_MAIN)
+        buttons_.button(Config::Binding::BTN_MAIN)
             .release()
             .then([this] {
-                sendButtonCC(Bind::Midi::VALUE_OFF);
+                sendButtonCC(Config::Binding::Midi::VALUE_OFF);
             });
     }
 
     void sendButtonCC(uint8_t value) {
-        midi_.sendCC(Bind::Midi::BTN_MAIN_CH, Bind::Midi::BTN_MAIN_CC, value);
+        midi_.sendCC(Config::Binding::Midi::BTN_MAIN_CH, Config::Binding::Midi::BTN_MAIN_CC, value);
     }
 
     void resetAllEncoders() {
         // Sync hardware positions (prevents jump on next turn)
         for (size_t i = 0; i < ENC_COUNT; ++i) {
-            encoders_.setPosition(Enc::ALL[i].id, View::DEFAULT_VALUE);
+            encoders_.setPosition(Config::Encoder::ALL[i].id, View::DEFAULT_VALUE);
         }
         // Update UI
         view_.resetEncoderPositions();

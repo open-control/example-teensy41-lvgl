@@ -90,7 +90,7 @@ constexpr oc::teensy::Ili9341Config CONFIG = {
 
     .spiSpeed = 40'000'000,  // WARNING: Above 40 MHz may cause artifacts with long wires
 
-    .rotation = 3,          // 0-3: 90° increments. 3 = landscape, USB on right
+    .rotation = 3,          // 0-3: 90° increments. 3 = landscape
     .invertDisplay = true,  // Toggle if colors are inverted
 
     .vsyncSpacing = 1,
@@ -138,16 +138,16 @@ constexpr oc::ui::LVGLBridgeConfig CONFIG = {
  *   - Wrong direction: Set invertDirection = true
  *   - Skipping steps: Reduce ticksPerEvent or increase APP_HZ
  */
-namespace Enc {
-    using Def = oc::common::EncoderDef;
+namespace Encoder {
+    using Definition = oc::common::EncoderDef;
 
     constexpr uint16_t PPR = 24;  // CRITICAL: Must match encoder datasheet
     constexpr uint16_t RANGE = 270;
     constexpr uint8_t TICKS = 1;  // 1 = every pulse, 4 = every detent (smoother but less precise)
-    constexpr bool     INV   = true;
+    constexpr bool INVERT = true;
 
-    constexpr Def LEFT  { 10, 22, 23, PPR, RANGE, TICKS, INV };
-    constexpr Def RIGHT { 11, 18, 19, PPR, RANGE, TICKS, INV };
+    constexpr Definition LEFT  { 10, 22, 23, PPR, RANGE, TICKS, INVERT };
+    constexpr Definition RIGHT { 11, 18, 19, PPR, RANGE, TICKS, INVERT };
 
     constexpr std::array ALL = { LEFT, RIGHT };
 }
@@ -162,11 +162,11 @@ namespace Enc {
  * Supports direct MCU GPIO or external multiplexer.
  * activeLow = true for buttons wired to GND with pull-up.
  */
-namespace Btn {
-    using Def = oc::common::ButtonDef;
-    using Src = oc::hal::GpioPin::Source;
+namespace Button {
+    using Definition = oc::common::ButtonDef;
+    using Source = oc::hal::GpioPin::Source;
 
-    constexpr Def MAIN { 100, {32, Src::MCU}, true };
+    constexpr Definition MAIN { 100, {32, Source::MCU}, true };
 
     constexpr std::array ALL = { MAIN };
 }
@@ -213,17 +213,17 @@ constexpr oc::core::InputConfig CONFIG = {.longPressMs = Timing::LONG_PRESS_MS,
  * Centralizing these here makes it easy to rewire controls or
  * change MIDI assignments without touching application logic.
  *
- * Usage in views:
- *   api->onTurned(Bind::ENC_LEFT, [](float v) { ... });
- *   api->sendCC(Bind::Midi::ENC_LEFT_CH, Bind::Midi::ENC_LEFT_CC, value);
+ * Usage in contexts:
+ *   onEncoder(Binding::ENC_LEFT).turn().then([](float v) { ... });
+ *   midi().sendCC(Binding::Midi::ENC_LEFT_CH, Binding::Midi::ENC_LEFT_CC, value);
  */
-namespace Bind {
+namespace Binding {
 
 // ── Input bindings ──
 // Physical input IDs for callback registration
-constexpr auto ENC_LEFT = Enc::LEFT.id;
-constexpr auto ENC_RIGHT = Enc::RIGHT.id;
-constexpr auto BTN_MAIN = Btn::MAIN.id;
+constexpr auto ENC_LEFT = Encoder::LEFT.id;
+constexpr auto ENC_RIGHT = Encoder::RIGHT.id;
+constexpr auto BTN_MAIN = Button::MAIN.id;
 
 // ── MIDI bindings ──
 // Maps inputs to MIDI channel/CC pairs
@@ -243,6 +243,6 @@ constexpr uint8_t VALUE_MAX = 127;
 constexpr uint8_t VALUE_ON = 127;
 constexpr uint8_t VALUE_OFF = 0;
 }  // namespace Midi
-}  // namespace Bind
+}  // namespace Binding
 
 }  // namespace Config
