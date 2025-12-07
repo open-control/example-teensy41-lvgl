@@ -66,7 +66,7 @@ static bool initDisplay() {
 /**
  * @brief Initialize LVGL graphics library
  *
- * LVGLBridge handles lv_init(), tick callback, and display driver setup.
+ * Bridge handles lv_init(), tick callback, and display driver setup.
  * Uses the LVGL buffer allocated in DMAMEM for optimal performance.
  *
  * @return true if LVGL initialized successfully

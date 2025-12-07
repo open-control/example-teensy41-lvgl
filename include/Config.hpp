@@ -116,8 +116,8 @@ constexpr size_t DIFF_SIZE = CONFIG.recommendedDiffSize();
  */
 namespace LVGL {
 constexpr oc::ui::lvgl::BridgeConfig CONFIG = {
-    .renderMode = LV_DISPLAY_RENDER_MODE_FULL,  // Change to PARTIAL if RAM is tight but you may
-                                                // have with less deterministic timing and tearing
+    .renderMode = LV_DISPLAY_RENDER_MODE_FULL,  // Change to PARTIAL if RAM is tight, but expect
+                                                // less deterministic timing and potential tearing
     .buffer2 = nullptr,                         // Buffering is optimized at driver level with ILI9341_T4 dep in the
                                                 // framework driver (only compatible w/ Teensy 4.x)
     .refreshHz = Timing::LVGL_HZ};
@@ -131,7 +131,7 @@ constexpr oc::ui::lvgl::BridgeConfig CONFIG = {
  * Quadrature rotary encoders with interrupt-driven decoding.
  *
  * SINGLE SOURCE OF TRUTH: Duplicate a line to add an encoder.
- * Auto-generates: MIDI CC (Midi::ENC_CC_RANGE_START + index), UI slider.
+ * Auto-generates: MIDI CC (Config::Midi::ENC_CC_RANGE_START + index), UI slider.
  *
  * Definition: { id, pinA, pinB, ppr, rangeAngle, ticksPerEvent, invertDirection }
  *
@@ -151,8 +151,8 @@ constexpr bool INVERT = true;
 
 constexpr std::array ENCODERS = {
     //         id  pinA pinB ppr  range  ticks  invert
-    EncoderDef{10, 22, 23, PPR, RANGE, TICKS, INVERT},  // -> CC 10, ENC 1
-    EncoderDef{11, 18, 19, PPR, RANGE, TICKS, INVERT},  // -> CC 11, ENC 2
+    EncoderDef{10, 22, 23, PPR, RANGE, TICKS, INVERT},  // -> CC 60, ENC 1
+    EncoderDef{11, 18, 19, PPR, RANGE, TICKS, INVERT},  // -> CC 61, ENC 2
     // Adjust to your needs, add more encoders here...
 };
 }
@@ -165,7 +165,7 @@ constexpr std::array ENCODERS = {
  * Push buttons with debouncing and gesture detection.
  *
  * SINGLE SOURCE OF TRUTH: Duplicate a line to add a button.
- * Auto-generates: MIDI CC (Midi::BTN_CC_RANGE_START + index).
+ * Auto-generates: MIDI CC (Config::Midi::BTN_CC_RANGE_START + index).
  *
  * Definition: { id, {pin, source}, activeLow }
  * Source: MCU (direct GPIO) or MUX (via multiplexer)
@@ -176,7 +176,7 @@ using Source = oc::hal::GpioPin::Source;
 
 constexpr std::array BUTTONS = {
     //        id    pin source        activeLow
-    ButtonDef{100, {32, Source::MCU}, true},  // -> CC 60, BTN 1
+    ButtonDef{100, {32, Source::MCU}, true},  // -> CC 10, BTN 1
     // Adjust to your needs, add more buttons here...
 };
 }
