@@ -33,7 +33,7 @@ namespace ui {
 template <typename View>
 class Handler {
 public:
-    static constexpr size_t ENC_COUNT = Config::Encoder::ALL.size();
+    static constexpr size_t ENCODER_COUNT = Config::Encoder::ALL.size();
 
     Handler(oc::api::ButtonAPI& buttons, oc::api::EncoderAPI& encoders,
             oc::api::MidiAPI& midi, View& view)
@@ -56,7 +56,7 @@ private:
     // ───────────────────────────────────────────────────────────────────
 
     void bindEncoders() {
-        for (size_t i = 0; i < ENC_COUNT; ++i) {
+        for (size_t i = 0; i < ENCODER_COUNT; ++i) {
             encoders_.encoder(Config::Encoder::ALL[i].id)
                 .turn()
                 .then([this, i](float value) {
@@ -100,7 +100,7 @@ private:
 
     void resetAllEncoders() {
         // Sync hardware positions (prevents jump on next turn)
-        for (size_t i = 0; i < ENC_COUNT; ++i) {
+        for (size_t i = 0; i < ENCODER_COUNT; ++i) {
             encoders_.setPosition(Config::Encoder::ALL[i].id, View::DEFAULT_VALUE);
         }
         // Update UI
