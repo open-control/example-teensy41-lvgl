@@ -2,10 +2,12 @@
 
 /**
  * @file Config.hpp
- * @brief Hardware configuration for Open Control LVGL example
+ * @brief Hardware configuration for Open Control Teensy 4.1 LVGL Example
  *
- * Pure configuration data - all values are compile-time constants.
- * No object creation, no runtime pointers.
+ * Pure compile-time configuration. No object creation, no runtime pointers.
+ * Buffer sizes are auto-calculated from display dimensions.
+ *
+ * Modify these values to match your hardware setup.
  */
 
 #include <array>
@@ -23,63 +25,105 @@ namespace Config {
 // TIMING
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * System timing constants controlling responsiveness vs CPU load.
+ *
+ * APP_HZ controls encoder/button polling. Too low = missed encoder steps.
+ * LVGL_HZ controls UI refresh. Must be <= APP_HZ.
+ */
 namespace Timing {
-    constexpr uint32_t APP_HZ  = 2000;   ///< Main loop rate (encoder polling)
-    constexpr uint32_t LVGL_HZ = 100;    ///< UI refresh rate
+constexpr uint32_t APP_HZ = 2000;  // WARNING: Below 1000 Hz may miss encoder steps at fast rotation
+constexpr uint32_t LVGL_HZ = 100;
 
-    constexpr uint32_t LONG_PRESS_MS = 500;
-    constexpr uint32_t DOUBLE_TAP_MS = 300;
-    constexpr uint8_t  DEBOUNCE_MS   = 5;
+constexpr uint16_t LONG_PRESS_MS = 500;
+constexpr uint16_t DOUBLE_TAP_MS = 300;
+constexpr uint8_t DEBOUNCE_MS = 5;  // Increase to 10-20 if buttons trigger multiple times
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // DISPLAY
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * ILI9341 320x240 TFT display with DMA acceleration.
+ *
+ * Uses SPI1 on Teensy 4.1 for optimal DMA performance.
+ * Requires DMAMEM buffers defined in Buffer.hpp.
+ *
+ * Troubleshooting:
+ *   - White screen: Check SPI wiring and spiSpeed (try 20 MHz)
+ *   - Wrong colors: Toggle invertDisplay
+ *   - Flickering: Reduce spiSpeed or increase vsyncSpacing
+ *   - Tearing: Adjust refreshRate to match actual display capability and/or increase vsync to 2
+ */
 namespace Display {
-    constexpr oc::teensy::Ili9341Config CONFIG = {
-        .width = 320,
-        .height = 240,
-        .csPin = 28,
-        .dcPin = 0,
-        .rstPin = 29,
-        .mosiPin = 26,
-        .sckPin = 27,
-        .misoPin = 1,
-        .spiSpeed = 40'000'000,
-        .rotation = 3,
-        .invertDisplay = true,
-        .vsyncSpacing = 2,
-        .refreshRate = Timing::LVGL_HZ * 2
-    };
+constexpr oc::teensy::Ili9341Config CONFIG = {
+    .width = 320,
+    .height = 240,
 
-    // Buffer sizes derived from config
-    constexpr size_t BUFFER_SIZE = CONFIG.framebufferSize();
-    constexpr size_t DIFF_SIZE = CONFIG.recommendedDiffSize();
+    .csPin = 28,
+    .dcPin = 0,
+    .rstPin = 29,
+    .mosiPin = 26,  // SPI1 MOSI - change to 11 for SPI0
+    .sckPin = 27,   // SPI1 SCK  - change to 13 for SPI0
+    .misoPin = 1,   // SPI1 MISO - change to 12 for SPI0
+
+    .spiSpeed = 40'000'000,  // WARNING: Above 40 MHz may cause artifacts with long wires
+
+    .rotation = 3,          // 0-3: 90° increments. 3 = landscape, USB on right
+    .invertDisplay = true,  // Toggle if colors are inverted
+
+    .vsyncSpacing = 1,
+    .refreshRate = Timing::LVGL_HZ * CONFIG.vsyncSpacing};
+
+constexpr size_t BUFFER_SIZE = CONFIG.framebufferSize();
+constexpr size_t DIFF_SIZE = CONFIG.recommendedDiffSize();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // LVGL BRIDGE
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * LVGL display bridge configuration.
+ *
+ * Handles lv_init(), tick callback, and display setup internally.
+ * Call init() once after display is initialized.
+ *
+ * Memory usage (320x240 RGB565):
+ *   - FULL mode:    ~150 KB (best quality, no flicker)
+ *   - PARTIAL mode: ~20-40 KB (may flicker on fast animations)
+ */
 namespace LVGL {
-    constexpr oc::ui::LVGLBridgeConfig CONFIG = {
-        .renderMode = LV_DISPLAY_RENDER_MODE_FULL,
-        .buffer2 = nullptr,
-        .refreshHz = Timing::LVGL_HZ
-    };
+constexpr oc::ui::LVGLBridgeConfig CONFIG = {
+    .renderMode = LV_DISPLAY_RENDER_MODE_FULL,  // Change to PARTIAL if RAM is tight but you may
+                                                // have with less deterministic timing and tearing
+    .buffer2 = nullptr,  // Buffering is optimized at driver level with ILI9341_T4 dep in the
+                         // framework driver (only compatible w/ Teensy 4.x)
+    .refreshHz = Timing::LVGL_HZ};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // ENCODERS
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Quadrature rotary encoders with interrupt-driven decoding.
+ *
+ * Output is normalized 0.0-1.0 based on PPR and rangeAngle.
+ * Use RAW or RELATIVE modes in EncoderLogic for unbounded rotation.
+ *
+ * Common issues:
+ *   - Erratic values: Check PPR matches datasheet, increase APP_HZ
+ *   - Wrong direction: Set invertDirection = true
+ *   - Skipping steps: Reduce ticksPerEvent or increase APP_HZ
+ */
 namespace Enc {
     using Def = oc::common::EncoderDef;
 
-    constexpr uint16_t PPR   = 24;
+    constexpr uint16_t PPR = 24;  // CRITICAL: Must match encoder datasheet
     constexpr uint16_t RANGE = 270;
-    constexpr uint8_t  TICKS = 1;
+    constexpr uint8_t TICKS = 1;  // 1 = every pulse, 4 = every detent (smoother but less precise)
     constexpr bool     INV   = true;
 
     constexpr Def LEFT  { 10, 22, 23, PPR, RANGE, TICKS, INV };
@@ -92,6 +136,12 @@ namespace Enc {
 // BUTTONS
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Push buttons with debouncing and gesture detection.
+ *
+ * Supports direct MCU GPIO or external multiplexer.
+ * activeLow = true for buttons wired to GND with pull-up.
+ */
 namespace Btn {
     using Def = oc::common::ButtonDef;
     using Src = oc::hal::GpioPin::Source;
@@ -105,21 +155,74 @@ namespace Btn {
 // MIDI
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * USB MIDI output configuration.
+ *
+ * Requires -D USB_MIDI_SERIAL in platformio.ini build_flags.
+ * CC numbers 0-13 are reserved (bank select, mod wheel, etc).
+ */
 namespace Midi {
-    constexpr uint8_t CHANNEL = 0;
-    constexpr uint8_t ENC_CC  = 16;
-    constexpr uint8_t BTN_CC  = 20;
+constexpr uint8_t CHANNEL = 0;  // 0-15, DAWs display as 1-16
+constexpr uint8_t ENC_CC = 16;
+constexpr uint8_t BTN_CC = 20;
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
 // INPUT
 // ═══════════════════════════════════════════════════════════════════════════
 
+/**
+ * Input gesture detection configuration.
+ *
+ * longPressMs: Duration to trigger long press (300-800 ms typical)
+ * doubleTapWindowMs: Max gap between taps (too long delays single-tap response)
+ */
 namespace Input {
-    constexpr oc::core::InputConfig CONFIG = {
-        .longPressMs = Timing::LONG_PRESS_MS,
-        .doubleTapWindowMs = Timing::DOUBLE_TAP_MS
-    };
+constexpr oc::core::InputConfig CONFIG = {.longPressMs = Timing::LONG_PRESS_MS,
+                                          .doubleTapWindowMs = Timing::DOUBLE_TAP_MS};
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BINDINGS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Input-to-action and MIDI binding definitions for this example.
+ *
+ * Maps physical inputs to logical actions and MIDI outputs.
+ * Centralizing these here makes it easy to rewire controls or
+ * change MIDI assignments without touching application logic.
+ *
+ * Usage in views:
+ *   api->onTurned(Bind::ENC_LEFT, [](float v) { ... });
+ *   api->sendCC(Bind::Midi::ENC_LEFT_CH, Bind::Midi::ENC_LEFT_CC, value);
+ */
+namespace Bind {
+
+// ── Input bindings ──
+// Physical input IDs for callback registration
+constexpr auto ENC_LEFT = Enc::LEFT.id;
+constexpr auto ENC_RIGHT = Enc::RIGHT.id;
+constexpr auto BTN_MAIN = Btn::MAIN.id;
+
+// ── MIDI bindings ──
+// Maps inputs to MIDI channel/CC pairs
+namespace Midi {
+// Encoders -> CC (value = normalized 0-127)
+constexpr uint8_t ENC_LEFT_CH = Config::Midi::CHANNEL;
+constexpr uint8_t ENC_LEFT_CC = Config::Midi::ENC_CC;  // CC 16
+constexpr uint8_t ENC_RIGHT_CH = Config::Midi::CHANNEL;
+constexpr uint8_t ENC_RIGHT_CC = Config::Midi::ENC_CC + 1;  // CC 17
+
+// Button -> CC (press = 127, release = 0)
+constexpr uint8_t BTN_MAIN_CH = Config::Midi::CHANNEL;
+constexpr uint8_t BTN_MAIN_CC = Config::Midi::BTN_CC;  // CC 20
+
+// Constants
+constexpr uint8_t VALUE_MAX = 127;
+constexpr uint8_t VALUE_ON = 127;
+constexpr uint8_t VALUE_OFF = 0;
+}  // namespace Midi
+}  // namespace Bind
 
 }  // namespace Config

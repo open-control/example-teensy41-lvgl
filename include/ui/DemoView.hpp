@@ -2,14 +2,12 @@
 
 /**
  * @file DemoView.hpp
- * @brief LVGL demo context - showcases Open Control framework capabilities
+ * @brief LVGL demo view - pure UI component
  *
- * Demonstrates:
- * - IContext lifecycle (initialize, update, cleanup)
- * - Encoder bindings with onTurned callbacks
- * - Button bindings with onPressed/onReleased
- * - MIDI CC output
- * - Dynamic LVGL flex layout
+ * Displays encoder sliders and responds to input events.
+ * Input binding and MIDI output are handled by Handler.hpp.
+ *
+ * Adapts automatically to the number of encoders in Config::Enc::ALL.
  */
 
 #include <Arduino.h>
@@ -20,23 +18,27 @@
 #include <oc/context/IContext.hpp>
 
 #include "Config.hpp"
+#include "Handler.hpp"
 
 namespace ui {
 
 namespace Enc = Config::Enc;
-namespace Btn = Config::Btn;
-namespace Midi = Config::Midi;
 
 /**
  * @class DemoView
- * @brief Interactive encoder/button demo with LVGL UI and MIDI output
+ * @brief Interactive encoder/button demo with LVGL UI
+ *
+ * Public interface for Handler:
+ *   - setEncoder(index, value): update slider + label
+ *   - onButtonPress(): reset all encoders to default
+ *   - onButtonRelease(): (no-op, but called by handler)
  */
 class DemoView : public oc::context::IContext {
 
     struct Colors {
-        static constexpr uint32_t LABEL_DIM = 0x888888;
+        static constexpr uint32_t LABEL_DIM   = 0x888888;
         static constexpr uint32_t LABEL_MUTED = 0x555555;
-        static constexpr uint32_t SLIDER_BG = 0x333355;
+        static constexpr uint32_t SLIDER_BG   = 0x333355;
         static constexpr uint32_t SLIDER_FILL = 0x6666ff;
         static constexpr uint32_t SLIDER_KNOB = 0x9999ff;
     };
@@ -44,7 +46,6 @@ class DemoView : public oc::context::IContext {
 public:
     static constexpr size_t ENC_COUNT = Enc::ALL.size();
     static constexpr int32_t SLIDER_MAX = 100;
-    static constexpr uint8_t MIDI_MAX = 127;
     static constexpr float DEFAULT_VALUE = 0.5f;
 
     // ─────────────────────────────────────────────────────────────────
@@ -52,9 +53,9 @@ public:
     // ─────────────────────────────────────────────────────────────────
 
     bool initialize(oc::api::ControlAPI& api) override {
-        api_ = &api;
         createUI();
-        bindInputs();
+        handler_.emplace(api, *this);
+        handler_->bind();
         return true;
     }
 
@@ -63,9 +64,29 @@ public:
     const char* getName() const override { return "Demo"; }
     const char* getId() const override { return "demo"; }
 
+    // ─────────────────────────────────────────────────────────────────
+    // Public interface (called by Handler)
+    // ─────────────────────────────────────────────────────────────────
+
+    void setEncoder(size_t index, float value) {
+        if (index >= ENC_COUNT) return;
+        lv_slider_set_value(sliders_[index], int32_t(value * SLIDER_MAX), LV_ANIM_ON);
+        lv_label_set_text(labels_[index], (std::to_string(int(value * SLIDER_MAX)) + "%").c_str());
+    }
+
+    void resetEncoderPositions() {
+        for (size_t i = 0; i < ENC_COUNT; ++i) {
+            setEncoder(i, DEFAULT_VALUE);
+        }
+    }
+
+    void onButtonRelease() {
+        // No visual feedback on release
+    }
+
 private:
     // ─────────────────────────────────────────────────────────────────
-    // UI
+    // UI Creation
     // ─────────────────────────────────────────────────────────────────
 
     void createUI() {
@@ -151,46 +172,10 @@ private:
     }
 
     // ─────────────────────────────────────────────────────────────────
-    // Handlers
-    // ─────────────────────────────────────────────────────────────────
-
-    void setEncoderUI(size_t i, float value) {
-        lv_slider_set_value(sliders_[i], int32_t(value * SLIDER_MAX), LV_ANIM_ON);
-        lv_label_set_text(labels_[i], (std::to_string(int(value * SLIDER_MAX)) + "%").c_str());
-    }
-
-    void updateEncoder(size_t i, float value) {
-        api_->sendCC(Midi::CHANNEL, Midi::ENC_CC + i, uint8_t(value * MIDI_MAX));
-        setEncoderUI(i, value);
-    }
-
-    void resetEncoders() {
-        api_->sendCC(Midi::CHANNEL, Midi::BTN_CC, MIDI_MAX);
-        for (size_t i = 0; i < ENC_COUNT; ++i) { setEncoderUI(i, DEFAULT_VALUE); }
-    }
-
-    void releaseButton() {
-        api_->sendCC(Midi::CHANNEL, Midi::BTN_CC, 0);
-    }
-
-    // ─────────────────────────────────────────────────────────────────
-    // Bindings
-    // ─────────────────────────────────────────────────────────────────
-
-    void bindInputs() {
-        for (size_t i = 0; i < ENC_COUNT; ++i) {
-            api_->onTurned(Enc::ALL[i].id, [this, i](float v) { updateEncoder(i, v); });
-        }
-
-        api_->onPressed(Btn::MAIN.id, [this] { resetEncoders(); });
-        api_->onReleased(Btn::MAIN.id, [this] { releaseButton(); });
-    }
-
-    // ─────────────────────────────────────────────────────────────────
     // Members
     // ─────────────────────────────────────────────────────────────────
 
-    oc::api::ControlAPI* api_ = nullptr;
+    std::optional<Handler<DemoView>> handler_;
     lv_obj_t* sliders_[ENC_COUNT] = {};
     lv_obj_t* labels_[ENC_COUNT] = {};
 };
