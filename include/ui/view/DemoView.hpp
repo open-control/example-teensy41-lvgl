@@ -21,7 +21,7 @@
 #include <vector>
 
 #include <lvgl.h>
-#include <oc/ui/interface/IView.hpp>
+#include <oc/ui/lvgl/IView.hpp>
 
 namespace ui {
 
@@ -30,7 +30,7 @@ namespace ui {
  *
  * Auto-generates UI from Config::Button::BUTTONS and Config::Encoder::ENCODERS.
  */
-class DemoView : public oc::ui::IView {
+class DemoView : public oc::ui::lvgl::IView {
 public:
     static constexpr size_t BUTTON_COUNT = Config::Button::BUTTONS.size();
     static constexpr size_t ENCODER_COUNT = Config::Encoder::ENCODERS.size();

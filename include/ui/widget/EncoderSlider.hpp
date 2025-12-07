@@ -9,7 +9,7 @@
  */
 
 #include <lvgl.h>
-#include <oc/ui/interface/IWidget.hpp>
+#include <oc/ui/lvgl/IWidget.hpp>
 
 namespace ui {
 
@@ -28,7 +28,7 @@ struct EncoderSliderStyle {
  * Slider fills from left based on normalized value (0.0-1.0).
  * Label is centered inside the slider background.
  */
-class EncoderSlider : public oc::ui::IWidget {
+class EncoderSlider : public oc::ui::lvgl::IWidget {
 public:
     using Style = EncoderSliderStyle;
 

@@ -17,7 +17,7 @@
 #include <oc/common/EncoderDef.hpp>
 #include <oc/core/input/InputConfig.hpp>
 #include <oc/teensy/Ili9341.hpp>
-#include <oc/ui/bridge/LVGLBridge.hpp>
+#include <oc/ui/lvgl/Bridge.hpp>
 
 namespace Config {
 
@@ -115,7 +115,7 @@ constexpr size_t DIFF_SIZE = CONFIG.recommendedDiffSize();
  *   - PARTIAL mode: ~20-40 KB (may flicker on fast animations)
  */
 namespace LVGL {
-constexpr oc::ui::LVGLBridgeConfig CONFIG = {
+constexpr oc::ui::lvgl::BridgeConfig CONFIG = {
     .renderMode = LV_DISPLAY_RENDER_MODE_FULL,  // Change to PARTIAL if RAM is tight but you may
                                                 // have with less deterministic timing and tearing
     .buffer2 = nullptr,                         // Buffering is optimized at driver level with ILI9341_T4 dep in the

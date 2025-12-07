@@ -9,7 +9,7 @@
  */
 
 #include <lvgl.h>
-#include <oc/ui/interface/IWidget.hpp>
+#include <oc/ui/lvgl/IWidget.hpp>
 
 namespace ui {
 
@@ -28,7 +28,7 @@ struct ButtonIndicatorStyle {
  * Displays a colored rectangle that reflects button state.
  * Call setPressed(true/false) to update visual feedback.
  */
-class ButtonIndicator : public oc::ui::IWidget {
+class ButtonIndicator : public oc::ui::lvgl::IWidget {
 public:
     using Style = ButtonIndicatorStyle;
 

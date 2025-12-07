@@ -38,7 +38,7 @@
  * This pattern allows complex constructors while avoiding global init order issues.
  */
 static std::optional<oc::teensy::Ili9341> display;
-static std::optional<oc::ui::LVGLBridge> lvgl;
+static std::optional<oc::ui::lvgl::Bridge> lvgl;
 static std::optional<oc::app::OpenControlApp> app;
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -72,10 +72,10 @@ static bool initDisplay() {
  * @return true if LVGL initialized successfully
  */
 static bool initLVGL() {
-    using oc::ui::LVGLBridge;
+    using oc::ui::lvgl::Bridge;
     using oc::teensy::defaultTimeProvider;
 
-    lvgl = LVGLBridge(*display, Buffer::lvgl, defaultTimeProvider, Config::LVGL::CONFIG);
+    lvgl = Bridge(*display, Buffer::lvgl, defaultTimeProvider, Config::LVGL::CONFIG);
 
     return lvgl->init();
 }
