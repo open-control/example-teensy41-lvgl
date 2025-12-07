@@ -54,10 +54,12 @@ static std::optional<oc::app::OpenControlApp> app;
  * @return true if display initialized successfully
  */
 static bool initDisplay() {
-    display = oc::teensy::Ili9341(
+    using oc::teensy::Ili9341;
+
+    display = Ili9341(
         Config::Display::CONFIG,
-        {.framebuffer = Buffer::framebuffer, .diff1 = Buffer::diff1, .diff2 = Buffer::diff2}
-    );
+        {.framebuffer = Buffer::framebuffer, .diff1 = Buffer::diff1, .diff2 = Buffer::diff2});
+
     return display->init();
 }
 
@@ -70,7 +72,11 @@ static bool initDisplay() {
  * @return true if LVGL initialized successfully
  */
 static bool initLVGL() {
-    lvgl = oc::ui::LVGLBridge(*display, Buffer::lvgl, millis, Config::LVGL::CONFIG);
+    using oc::ui::LVGLBridge;
+    using oc::teensy::defaultTimeProvider;
+
+    lvgl = LVGLBridge(*display, Buffer::lvgl, defaultTimeProvider, Config::LVGL::CONFIG);
+
     return lvgl->init();
 }
 
@@ -83,15 +89,19 @@ static bool initLVGL() {
  * @return true if application started successfully
  */
 static bool initApp() {
-    using namespace oc::teensy;
+    using oc::app::AppBuilder;
+    using oc::teensy::defaultTimeProvider;
+    using oc::teensy::makeButtonController;
+    using oc::teensy::makeEncoderController;
+    using oc::teensy::UsbMidi;
 
-    app = oc::app::AppBuilder()
-        .timeProvider(defaultTimeProvider)
-        .midi(std::make_unique<UsbMidi>())
-        .encoders(makeEncoderController(Config::Encoder::ALL))
-        .buttons(makeButtonController(Config::Button::ALL, nullptr, Config::Timing::DEBOUNCE_MS))
-        .inputConfig(Config::Input::CONFIG)
-        .build();
+    app = AppBuilder()
+              .timeProvider(defaultTimeProvider)
+              .midi(std::make_unique<UsbMidi>())
+              .encoders(makeEncoderController(Config::Encoder::ENCODERS))
+              .buttons(makeButtonController(Config::Button::BUTTONS, nullptr, Config::Timing::DEBOUNCE_MS))
+              .inputConfig(Config::Input::CONFIG)
+              .build();
 
     app->registerContext<context::StandaloneContext>(Config::ContextID::STANDALONE);
     return app->begin();
@@ -109,20 +119,29 @@ void setup() {
                   Config::Timing::APP_HZ, Config::Timing::LVGL_HZ);
 
     // Initialize in dependency order, halt on failure
-    if (!initDisplay()) { Serial.println("[ERROR] Display init failed"); while (true); }
-    if (!initLVGL())    { Serial.println("[ERROR] LVGL init failed");    while (true); }
-    if (!initApp())     { Serial.println("[ERROR] App init failed");     while (true); }
+    if (!initDisplay()) {
+        Serial.println("[ERROR] Display init failed");
+        while (true);
+    }
+    if (!initLVGL()) {
+        Serial.println("[ERROR] LVGL init failed");
+        while (true);
+    }
+    if (!initApp()) {
+        Serial.println("[ERROR] App init failed");
+        while (true);
+    }
 
     Serial.println("[OK] Ready\n");
 }
 
+// Timing constants for main loop
+constexpr uint32_t APP_PERIOD_US = 1'000'000 / Config::Timing::APP_HZ;
+constexpr uint32_t LVGL_PERIOD_US = 1'000'000 / Config::Timing::LVGL_HZ;
+
 void loop() {
-    // Timing: run app at APP_HZ, LVGL at LVGL_HZ
     static uint32_t lastMicros = 0;
     static uint32_t lvglAccumulator = 0;
-
-    constexpr uint32_t APP_PERIOD_US = 1'000'000 / Config::Timing::APP_HZ;
-    constexpr uint32_t LVGL_PERIOD_US = 1'000'000 / Config::Timing::LVGL_HZ;
 
     const uint32_t now = micros();
     if (now - lastMicros < APP_PERIOD_US) return;

@@ -2,20 +2,18 @@
 
 /**
  * @file DemoView.hpp
- * @brief Demo view displaying encoder sliders with LVGL
+ * @brief Demo view with auto-generated buttons and encoder sliders
  *
- * Implements the IView interface from the ui-lvgl framework:
- * - IView provides lifecycle callbacks (onActivate/onDeactivate)
- * - getElement() returns the root container for scoped bindings
+ * Layout:
+ * - Title at top
+ * - Buttons in horizontal flex row
+ * - Encoders in vertical flex column
  *
- * This view displays one slider per encoder defined in Config::Encoder::ALL.
- * The Handler class calls setEncoder() when encoders rotate, and
- * resetEncoderPositions() when the button is pressed.
- *
- * Hierarchy: IElement -> IView -> DemoView
+ * Widgets are auto-generated from Config arrays.
  */
 
 #include "Config.hpp"
+#include "ui/widget/ButtonIndicator.hpp"
 #include "ui/widget/EncoderSlider.hpp"
 
 #include <memory>
@@ -28,90 +26,59 @@
 namespace ui {
 
 /**
- * @brief Full-screen view displaying encoder values as sliders
+ * @brief Full-screen view with buttons and encoder sliders
  *
- * Layout:
- * - Title "Open Control" at top
- * - One EncoderSlider widget per encoder
- * - Footer showing button action hint
- *
- * The view adapts automatically to the number of encoders in Config::Encoder::ALL.
+ * Auto-generates UI from Config::Button::BUTTONS and Config::Encoder::ENCODERS.
  */
 class DemoView : public oc::ui::IView {
 public:
-    /// Number of encoders, derived from hardware configuration
-    static constexpr size_t ENCODER_COUNT = Config::Encoder::ALL.size();
-
-    /// Default normalized value (0.5 = 50%), used for reset
+    static constexpr size_t BUTTON_COUNT = Config::Button::BUTTONS.size();
+    static constexpr size_t ENCODER_COUNT = Config::Encoder::ENCODERS.size();
     static constexpr float DEFAULT_VALUE = 0.5f;
 
     DemoView() { create(); }
     ~DemoView() override { destroy(); }
 
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
     // IElement Interface
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
 
-    /**
-     * @brief Get root LVGL container
-     *
-     * Used by the framework for scoped input bindings. Bindings attached to
-     * this element are automatically disabled when the view is hidden.
-     */
     lv_obj_t* getElement() const override { return container_; }
 
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
     // IView Interface
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
 
-    /**
-     * @brief Called when view becomes visible
-     *
-     * Clears the hidden flag so LVGL renders this view.
-     * Input bindings using this view's scope become active.
-     */
     void onActivate() override {
         if (container_) {
             lv_obj_clear_flag(container_, LV_OBJ_FLAG_HIDDEN);
         }
     }
 
-    /**
-     * @brief Called when view becomes hidden
-     *
-     * Sets the hidden flag to stop rendering this view.
-     * Input bindings using this view's scope become inactive.
-     */
     void onDeactivate() override {
         if (container_) {
             lv_obj_add_flag(container_, LV_OBJ_FLAG_HIDDEN);
         }
     }
 
-    /// Unique identifier for debugging and view switching
     const char* getViewId() const override { return "demo"; }
 
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
     // Public API (called by Handler)
-    // ═══════════════════════════════════════════════════════════════════════════
+    // ═══════════════════════════════════════════════════════════════════
 
-    /**
-     * @brief Update a single encoder's display
-     * @param index Encoder index (0-based)
-     * @param value Normalized value (0.0 to 1.0)
-     */
+    void setButton(size_t index, bool pressed) {
+        if (index < buttons_.size()) {
+            buttons_[index]->setPressed(pressed);
+        }
+    }
+
     void setEncoder(size_t index, float value) {
         if (index < sliders_.size()) {
             sliders_[index]->setValue(value);
         }
     }
 
-    /**
-     * @brief Reset all encoder displays to DEFAULT_VALUE
-     *
-     * Called by Handler when the reset button is pressed.
-     * This only updates the UI - hardware positions are synced separately.
-     */
     void resetEncoderPositions() {
         for (auto& slider : sliders_) {
             slider->setValue(DEFAULT_VALUE);
@@ -119,30 +86,25 @@ public:
     }
 
 private:
-    /// Create the complete UI hierarchy
     void create() {
         auto* screen = lv_screen_active();
 
-        // Root container fills the screen
+        // Root container
         container_ = lv_obj_create(screen);
         lv_obj_set_size(container_, LV_PCT(100), LV_PCT(100));
         lv_obj_set_style_bg_color(container_, lv_color_black(), 0);
         lv_obj_set_style_border_width(container_, 0, 0);
-        lv_obj_set_style_pad_all(container_, 10, 0);
-
-        // Vertical flex layout for stacking elements
+        lv_obj_set_style_pad_all(container_, 12, 0);
         lv_obj_set_flex_flow(container_, LV_FLEX_FLOW_COLUMN);
-        lv_obj_set_flex_align(container_, LV_FLEX_ALIGN_START,
-                              LV_FLEX_ALIGN_CENTER, LV_FLEX_ALIGN_CENTER);
-        lv_obj_set_style_pad_row(container_, 8, 0);
+        lv_obj_set_style_pad_row(container_, 12, 0);
 
         createTitle();
-        createEncoderSliders();
-        createFooter();
+        createButtons();
+        createEncoders();
     }
 
-    /// Clean up LVGL objects
     void destroy() {
+        buttons_.clear();
         sliders_.clear();
         if (container_) {
             lv_obj_delete(container_);
@@ -157,33 +119,44 @@ private:
         lv_obj_set_style_text_font(label, &lv_font_montserrat_16, 0);
     }
 
-    void createEncoderSliders() {
-        // Container for all sliders with vertical spacing
-        auto* sliderContainer = lv_obj_create(container_);
-        lv_obj_set_size(sliderContainer, LV_PCT(100), LV_SIZE_CONTENT);
-        lv_obj_set_style_bg_opa(sliderContainer, LV_OPA_TRANSP, 0);
-        lv_obj_set_style_border_width(sliderContainer, 0, 0);
-        lv_obj_set_style_pad_all(sliderContainer, 0, 0);
-        lv_obj_set_flex_flow(sliderContainer, LV_FLEX_FLOW_COLUMN);
-        lv_obj_set_style_pad_row(sliderContainer, 12, 0);
+    void createButtons() {
+        // Horizontal flex container
+        auto* row = lv_obj_create(container_);
+        lv_obj_set_size(row, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_opa(row, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(row, 0, 0);
+        lv_obj_set_style_pad_all(row, 0, 0);
+        lv_obj_set_flex_flow(row, LV_FLEX_FLOW_ROW);
+        lv_obj_set_style_pad_column(row, 8, 0);
 
-        // Create one slider per encoder
-        for (size_t i = 0; i < ENCODER_COUNT; ++i) {
-            std::string name = "Encoder " + std::to_string(i + 1);
-            sliders_.push_back(
-                std::make_unique<EncoderSlider>(sliderContainer, name.c_str())
+        for (size_t i = 0; i < BUTTON_COUNT; ++i) {
+            std::string name = "BTN " + std::to_string(i + 1);
+            buttons_.push_back(
+                std::make_unique<ButtonIndicator>(row, name.c_str())
             );
         }
     }
 
-    void createFooter() {
-        auto* label = lv_label_create(container_);
-        lv_label_set_text(label, "Button: reset all");
-        lv_obj_set_style_text_color(label, lv_color_hex(0x555555), 0);
-        lv_obj_set_style_text_font(label, &lv_font_montserrat_12, 0);
+    void createEncoders() {
+        // Vertical flex container
+        auto* column = lv_obj_create(container_);
+        lv_obj_set_size(column, LV_PCT(100), LV_SIZE_CONTENT);
+        lv_obj_set_style_bg_opa(column, LV_OPA_TRANSP, 0);
+        lv_obj_set_style_border_width(column, 0, 0);
+        lv_obj_set_style_pad_all(column, 0, 0);
+        lv_obj_set_flex_flow(column, LV_FLEX_FLOW_COLUMN);
+        lv_obj_set_style_pad_row(column, 8, 0);
+
+        for (size_t i = 0; i < ENCODER_COUNT; ++i) {
+            std::string name = "ENC " + std::to_string(i + 1);
+            sliders_.push_back(
+                std::make_unique<EncoderSlider>(column, name.c_str())
+            );
+        }
     }
 
     lv_obj_t* container_ = nullptr;
+    std::vector<std::unique_ptr<ButtonIndicator>> buttons_;
     std::vector<std::unique_ptr<EncoderSlider>> sliders_;
 };
 

@@ -118,8 +118,8 @@ namespace LVGL {
 constexpr oc::ui::LVGLBridgeConfig CONFIG = {
     .renderMode = LV_DISPLAY_RENDER_MODE_FULL,  // Change to PARTIAL if RAM is tight but you may
                                                 // have with less deterministic timing and tearing
-    .buffer2 = nullptr,  // Buffering is optimized at driver level with ILI9341_T4 dep in the
-                         // framework driver (only compatible w/ Teensy 4.x)
+    .buffer2 = nullptr,                         // Buffering is optimized at driver level with ILI9341_T4 dep in the
+                                                // framework driver (only compatible w/ Teensy 4.x)
     .refreshHz = Timing::LVGL_HZ};
 }
 
@@ -130,8 +130,10 @@ constexpr oc::ui::LVGLBridgeConfig CONFIG = {
 /**
  * Quadrature rotary encoders with interrupt-driven decoding.
  *
- * Output is normalized 0.0-1.0 based on PPR and rangeAngle.
- * Use RAW or RELATIVE modes in EncoderLogic for unbounded rotation.
+ * SINGLE SOURCE OF TRUTH: Duplicate a line to add an encoder.
+ * Auto-generates: MIDI CC (Midi::ENC_CC_RANGE_START + index), UI slider.
+ *
+ * Definition: { id, pinA, pinB, ppr, rangeAngle, ticksPerEvent, invertDirection }
  *
  * Common issues:
  *   - Erratic values: Check PPR matches datasheet, increase APP_HZ
@@ -139,17 +141,20 @@ constexpr oc::ui::LVGLBridgeConfig CONFIG = {
  *   - Skipping steps: Reduce ticksPerEvent or increase APP_HZ
  */
 namespace Encoder {
-    using Definition = oc::common::EncoderDef;
+using namespace oc::common;
 
-    constexpr uint16_t PPR = 24;  // CRITICAL: Must match encoder datasheet
-    constexpr uint16_t RANGE = 270;
-    constexpr uint8_t TICKS = 1;  // 1 = every pulse, 4 = every detent (smoother but less precise)
-    constexpr bool INVERT = true;
+// Shared parameters
+constexpr uint16_t PPR = 24;  // CRITICAL: Must match encoder datasheet
+constexpr uint16_t RANGE = 270;
+constexpr uint8_t TICKS = 1;  // 1 = every pulse, 4 = every detent
+constexpr bool INVERT = true;
 
-    constexpr Definition LEFT  { 10, 22, 23, PPR, RANGE, TICKS, INVERT };
-    constexpr Definition RIGHT { 11, 18, 19, PPR, RANGE, TICKS, INVERT };
-
-    constexpr std::array ALL = { LEFT, RIGHT };
+constexpr std::array ENCODERS = {
+    //         id  pinA pinB ppr  range  ticks  invert
+    EncoderDef{10, 22, 23, PPR, RANGE, TICKS, INVERT},  // -> CC 10, ENC 1
+    EncoderDef{11, 18, 19, PPR, RANGE, TICKS, INVERT},  // -> CC 11, ENC 2
+    // Adjust to your needs, add more encoders here...
+};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -159,16 +164,21 @@ namespace Encoder {
 /**
  * Push buttons with debouncing and gesture detection.
  *
- * Supports direct MCU GPIO or external multiplexer.
- * activeLow = true for buttons wired to GND with pull-up.
+ * SINGLE SOURCE OF TRUTH: Duplicate a line to add a button.
+ * Auto-generates: MIDI CC (Midi::BTN_CC_RANGE_START + index).
+ *
+ * Definition: { id, {pin, source}, activeLow }
+ * Source: MCU (direct GPIO) or MUX (via multiplexer)
  */
 namespace Button {
-    using Definition = oc::common::ButtonDef;
-    using Source = oc::hal::GpioPin::Source;
+using namespace oc::common;
+using Source = oc::hal::GpioPin::Source;
 
-    constexpr Definition MAIN { 100, {32, Source::MCU}, true };
-
-    constexpr std::array ALL = { MAIN };
+constexpr std::array BUTTONS = {
+    //        id    pin source        activeLow
+    ButtonDef{100, {32, Source::MCU}, true},  // -> CC 60, BTN 1
+    // Adjust to your needs, add more buttons here...
+};
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -182,9 +192,9 @@ namespace Button {
  * CC numbers 0-13 are reserved (bank select, mod wheel, etc).
  */
 namespace Midi {
-constexpr uint8_t CHANNEL = 0;  // 0-15, DAWs display as 1-16
-constexpr uint8_t ENC_CC = 16;
-constexpr uint8_t BTN_CC = 20;
+constexpr uint8_t CHANNEL = 0;              // 0-15, DAWs display as 1-16
+constexpr uint8_t BTN_CC_RANGE_START = 10;  // Buttons: CC 10, 11, 12...
+constexpr uint8_t ENC_CC_RANGE_START = 60;  // Encoders: CC 60, 61, 62...
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -201,48 +211,5 @@ namespace Input {
 constexpr oc::core::InputConfig CONFIG = {.longPressMs = Timing::LONG_PRESS_MS,
                                           .doubleTapWindowMs = Timing::DOUBLE_TAP_MS};
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// BINDINGS
-// ═══════════════════════════════════════════════════════════════════════════
-
-/**
- * Input-to-action and MIDI binding definitions for this example.
- *
- * Maps physical inputs to logical actions and MIDI outputs.
- * Centralizing these here makes it easy to rewire controls or
- * change MIDI assignments without touching application logic.
- *
- * Usage in contexts:
- *   onEncoder(Binding::ENC_LEFT).turn().then([](float v) { ... });
- *   midi().sendCC(Binding::Midi::ENC_LEFT_CH, Binding::Midi::ENC_LEFT_CC, value);
- */
-namespace Binding {
-
-// ── Input bindings ──
-// Physical input IDs for callback registration
-constexpr auto ENC_LEFT = Encoder::LEFT.id;
-constexpr auto ENC_RIGHT = Encoder::RIGHT.id;
-constexpr auto BTN_MAIN = Button::MAIN.id;
-
-// ── MIDI bindings ──
-// Maps inputs to MIDI channel/CC pairs
-namespace Midi {
-// Encoders -> CC (value = normalized 0-127)
-constexpr uint8_t ENC_LEFT_CH = Config::Midi::CHANNEL;
-constexpr uint8_t ENC_LEFT_CC = Config::Midi::ENC_CC;  // CC 16
-constexpr uint8_t ENC_RIGHT_CH = Config::Midi::CHANNEL;
-constexpr uint8_t ENC_RIGHT_CC = Config::Midi::ENC_CC + 1;  // CC 17
-
-// Button -> CC (press = 127, release = 0)
-constexpr uint8_t BTN_MAIN_CH = Config::Midi::CHANNEL;
-constexpr uint8_t BTN_MAIN_CC = Config::Midi::BTN_CC;  // CC 20
-
-// Constants
-constexpr uint8_t VALUE_MAX = 127;
-constexpr uint8_t VALUE_ON = 127;
-constexpr uint8_t VALUE_OFF = 0;
-}  // namespace Midi
-}  // namespace Binding
 
 }  // namespace Config

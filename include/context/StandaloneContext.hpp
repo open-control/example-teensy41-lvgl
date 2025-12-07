@@ -21,7 +21,7 @@
  */
 
 #include "Config.hpp"
-#include "ui/Handler.hpp"
+#include "handler/Handler.hpp"
 #include "ui/view/DemoView.hpp"
 
 #include <memory>
@@ -76,7 +76,7 @@ public:
         view_->onActivate();
 
         // Bind inputs to view
-        handler_ = std::make_unique<ui::Handler<ui::DemoView>>(
+        handler_ = std::make_unique<handler::Handler<ui::DemoView>>(
             buttons(), encoders(), midi(), *view_);
         handler_->bind();
 
@@ -101,7 +101,7 @@ public:
 
 private:
     std::unique_ptr<ui::DemoView> view_;
-    std::unique_ptr<ui::Handler<ui::DemoView>> handler_;
+    std::unique_ptr<handler::Handler<ui::DemoView>> handler_;
 };
 
 }  // namespace context
