@@ -3,19 +3,17 @@
  * @brief Open Control - Teensy 4.1 LVGL Example
  */
 
-#include <Arduino.h>
-#include <lvgl.h>
+#include "Buffer.hpp"
+#include "Config.hpp"
+
 #include <optional>
 
+#include <Arduino.h>
 #include <oc/app/AppBuilder.hpp>
 #include <oc/app/OpenControlApp.hpp>
 #include <oc/teensy/Teensy.hpp>
-#include <oc/teensy/Ili9341.hpp>
 #include <oc/teensy/UsbMidi.hpp>
-#include <oc/ui/bridge/LVGLBridge.hpp>
 
-#include "Buffers.hpp"
-#include "Config.hpp"
 #include "ui/DemoView.hpp"
 
 using namespace Config;
@@ -26,59 +24,34 @@ using namespace Config;
 
 static std::optional<oc::teensy::Ili9341> display;
 static std::optional<oc::ui::LVGLBridge> lvgl;
-static std::unique_ptr<oc::app::OpenControlApp> app;
+static std::optional<oc::app::OpenControlApp> app;
 
 // ─────────────────────────────────────────────────────────────────────
 // Init
 // ─────────────────────────────────────────────────────────────────────
 
 static bool initDisplay() {
-    display.emplace(oc::teensy::Ili9341Config{
-        .width = Display::WIDTH,
-        .height = Display::HEIGHT,
-        .refreshRate = Timing::LVGL_HZ,
-        .framebuffer = Buffers::framebuffer,
-        .diffBuffer1 = Buffers::diff1,
-        .diffBuffer1Size = sizeof(Buffers::diff1),
-        .diffBuffer2 = Buffers::diff2,
-        .diffBuffer2Size = sizeof(Buffers::diff2)
-    });
+    display = oc::teensy::Ili9341(
+        Display::CONFIG,
+        {.framebuffer = Buffer::framebuffer, .diff1 = Buffer::diff1, .diff2 = Buffer::diff2});
     return display->init();
 }
 
 static bool initLVGL() {
-    lv_init();
-    lv_tick_set_cb([]() -> uint32_t { return millis(); });
-
-    lvgl.emplace(oc::ui::LVGLBridgeConfig{
-        .width = Display::WIDTH,
-        .height = Display::HEIGHT,
-        .buffer1 = Buffers::lvgl,
-        .buffer2 = nullptr,
-        .bufferSizeBytes = sizeof(Buffers::lvgl),
-        .driver = &*display,
-        .renderMode = LV_DISPLAY_RENDER_MODE_FULL
-    });
-
-    if (!lvgl->init()) return false;
-
-    lv_timer_set_period(lv_display_get_refr_timer(lvgl->getDisplay()),
-                        1000 / Timing::LVGL_HZ);
-    return true;
+    lvgl = oc::ui::LVGLBridge(*display, Buffer::lvgl, millis, LVGL::CONFIG);
+    return lvgl->init();
 }
 
 static bool initApp() {
     using namespace oc::teensy;
 
-    app.reset(new oc::app::OpenControlApp(
-        oc::app::AppBuilder()
-            .timeProvider(defaultTimeProvider)
-            .midi(std::make_unique<UsbMidi>())
-            .encoders(makeEncoderController(Enc::ALL))
-            .buttons(makeButtonController(Btn::ALL, nullptr, Timing::DEBOUNCE_MS))
-            .inputConfig({.longPressMs = Timing::LONG_PRESS_MS, .doubleTapWindowMs = Timing::DOUBLE_TAP_MS})
-            .build()
-    ));
+    app = oc::app::AppBuilder()
+              .timeProvider(defaultTimeProvider)
+              .midi(std::make_unique<UsbMidi>())
+              .encoders(makeEncoderController(Enc::ALL))
+              .buttons(makeButtonController(Btn::ALL, nullptr, Timing::DEBOUNCE_MS))
+              .inputConfig(Input::CONFIG)
+              .build();
 
     app->registerContext<ui::DemoView>("demo");
     return app->begin();
@@ -95,7 +68,7 @@ void setup() {
     if (!initDisplay()) { Serial.println("[ERROR] Display"); while(1); }
     if (!initLVGL())    { Serial.println("[ERROR] LVGL");    while(1); }
     if (!initApp())     { Serial.println("[ERROR] App");     while(1); }
-    
+
     Serial.println("[OK] Ready\n");
 }
 
