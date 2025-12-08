@@ -24,10 +24,8 @@
 #include <optional>
 
 #include <Arduino.h>
-#include <oc/app/AppBuilder.hpp>
 #include <oc/app/OpenControlApp.hpp>
 #include <oc/teensy/Teensy.hpp>
-#include <oc/teensy/UsbMidi.hpp>
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Static Objects
@@ -89,19 +87,11 @@ static bool initLVGL() {
  * @return true if application started successfully
  */
 static bool initApp() {
-    using oc::app::AppBuilder;
-    using oc::teensy::defaultTimeProvider;
-    using oc::teensy::makeButtonController;
-    using oc::teensy::makeEncoderController;
-    using oc::teensy::UsbMidi;
-
-    app = AppBuilder()
-              .timeProvider(defaultTimeProvider)
-              .midi(std::make_unique<UsbMidi>())
-              .encoders(makeEncoderController(Config::Encoder::ENCODERS))
-              .buttons(makeButtonController(Config::Button::BUTTONS, nullptr, Config::Timing::DEBOUNCE_MS))
-              .inputConfig(Config::Input::CONFIG)
-              .build();
+    app = oc::teensy::AppBuilder()
+              .midi()
+              .encoders(Config::Encoder::ENCODERS)
+              .buttons(Config::Button::BUTTONS, Config::Timing::DEBOUNCE_MS)
+              .inputConfig(Config::Input::CONFIG);
 
     app->registerContext<context::StandaloneContext>(Config::ContextID::STANDALONE, "Standalone");
     return app->begin();
