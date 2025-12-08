@@ -103,7 +103,7 @@ static bool initApp() {
               .inputConfig(Config::Input::CONFIG)
               .build();
 
-    app->registerContext<context::StandaloneContext>(Config::ContextID::STANDALONE);
+    app->registerContext<context::StandaloneContext>(Config::ContextID::STANDALONE, "Standalone");
     return app->begin();
 }
 
