@@ -123,6 +123,22 @@ constexpr oc::ui::lvgl::BridgeConfig CONFIG = {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// ENCODER IDS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * User-defined encoder identifiers.
+ *
+ * Using enum class provides IDE autocompletion and type safety.
+ * Values can be any uint16_t, organized by logical grouping.
+ */
+enum class EncoderID : uint16_t {
+    ENC_1 = 10,
+    ENC_2 = 11,
+    // Add more encoders here...
+};
+
+// ═══════════════════════════════════════════════════════════════════════════
 // ENCODERS
 // ═══════════════════════════════════════════════════════════════════════════
 
@@ -149,12 +165,27 @@ constexpr uint8_t TICKS = 1;  // 1 = every pulse, 4 = every detent
 constexpr bool INVERT = true;
 
 constexpr std::array ENCODERS = {
-    //         id  pinA pinB ppr  range  ticks  invert
-    EncoderDef{10, 22, 23, PPR, RANGE, TICKS, INVERT},  // -> CC 60, ENC 1
-    EncoderDef{11, 18, 19, PPR, RANGE, TICKS, INVERT},  // -> CC 61, ENC 2
+    //         id              pinA pinB ppr  range  ticks  invert
+    EncoderDef(EncoderID::ENC_1, 22, 23, PPR, RANGE, TICKS, INVERT),  // -> CC 60
+    EncoderDef(EncoderID::ENC_2, 18, 19, PPR, RANGE, TICKS, INVERT),  // -> CC 61
     // Adjust to your needs, add more encoders here...
 };
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// BUTTON IDS
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * User-defined button identifiers.
+ *
+ * Using enum class provides IDE autocompletion and type safety.
+ * Values can be any uint16_t, organized by logical grouping.
+ */
+enum class ButtonID : uint16_t {
+    BTN_1 = 100,
+    // Add more buttons here...
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // BUTTONS
@@ -174,8 +205,8 @@ using namespace oc::common;
 using Source = oc::hal::GpioPin::Source;
 
 constexpr std::array BUTTONS = {
-    //        id    pin source        activeLow
-    ButtonDef{100, {32, Source::MCU}, true},  // -> CC 10, BTN 1
+    //        id             pin source        activeLow
+    ButtonDef(ButtonID::BTN_1, {32, Source::MCU}, true),  // -> CC 10
     // Adjust to your needs, add more buttons here...
 };
 }
