@@ -8,7 +8,7 @@
  * Auto-generated from Config::Encoder::ENCODERS array.
  */
 
-#include <lvgl.h>
+
 #include <oc/ui/lvgl/IWidget.hpp>
 
 namespace ui {

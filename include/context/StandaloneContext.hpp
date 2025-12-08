@@ -24,8 +24,6 @@
 #include "handler/Handler.hpp"
 #include "ui/view/DemoView.hpp"
 
-#include <memory>
-
 #include <oc/context/IContext.hpp>
 #include <oc/context/Requirements.hpp>
 
@@ -39,16 +37,9 @@ namespace context {
  *   - Input bindings via Handler
  *   - MIDI output
  *
- * Registered with OpenControlApp in main.cpp:
- *   app.registerContext<StandaloneContext>(ContextID::STANDALONE);
- *
- * @code
- * // Framework calls these automatically:
- * context.setAPIs(apis);   // Inject API references
- * context.initialize();    // Create views, bind inputs
- * context.update();        // Called every frame
- * context.cleanup();       // Destroy views, release resources
- * @endcode
+ * Uses direct members with two-phase initialization:
+ *   - View and Handler are default-constructed as members
+ *   - Actual setup happens in initialize() when APIs are available
  */
 class StandaloneContext : public oc::context::IContext {
 public:
@@ -63,23 +54,9 @@ public:
     // IContext Lifecycle
     // ═══════════════════════════════════════════════════════════════════
 
-    /**
-     * @brief Initialize context
-     *
-     * Called by framework when context becomes active.
-     * APIs are already available via protected accessors.
-     * Create views, set up input bindings, initialize state.
-     */
     bool initialize() override {
-        // Create view
-        view_ = std::make_unique<ui::DemoView>();
-        view_->onActivate();
-
-        // Bind inputs to view
-        handler_ = std::make_unique<handler::Handler<ui::DemoView>>(
-            buttons(), encoders(), midi(), *view_);
-        handler_->bind();
-
+        view_.onActivate();
+        handler_.setup(buttons(), encoders(), midi(), view_);
         return true;
     }
 
@@ -88,20 +65,14 @@ public:
     }
 
     void cleanup() override {
-        handler_.reset();
-        if (view_) {
-            view_->onDeactivate();
-        }
-        view_.reset();
+        view_.onDeactivate();
     }
-
-    // ── IContext Identity ──
 
     const char* getName() const override { return "Standalone"; }
 
 private:
-    std::unique_ptr<ui::DemoView> view_;
-    std::unique_ptr<handler::Handler<ui::DemoView>> handler_;
+    ui::DemoView view_;
+    handler::Handler<ui::DemoView> handler_;
 };
 
 }  // namespace context

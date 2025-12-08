@@ -27,6 +27,10 @@ namespace handler {
  * Iterates over Config::Encoder::ENCODERS and Config::Button::BUTTONS,
  * automatically generating MIDI CC bindings and view updates.
  *
+ * Uses two-phase initialization:
+ * 1. Default construct as class member
+ * 2. Call setup() in initialize() when APIs are available
+ *
  * @tparam View Must implement:
  *   - static constexpr float DEFAULT_VALUE
  *   - void setButton(size_t index, bool pressed)
@@ -39,21 +43,29 @@ public:
     static constexpr size_t ENCODER_COUNT = Config::Encoder::ENCODERS.size();
     static constexpr size_t BUTTON_COUNT = Config::Button::BUTTONS.size();
 
-    Handler(oc::api::ButtonAPI& buttons, oc::api::EncoderAPI& encoders,
-            oc::api::MidiAPI& midi, View& view)
-        : buttons_(buttons), encoders_(encoders), midi_(midi), view_(view) {}
+    /// Default constructor - call setup() before use
+    Handler() = default;
 
-    /// Auto-bind all encoders and buttons from Config arrays
+    /// Initialize with APIs and view, auto-binds all inputs
+    void setup(oc::api::ButtonAPI& buttons, oc::api::EncoderAPI& encoders,
+               oc::api::MidiAPI& midi, View& view) {
+        buttons_ = &buttons;
+        encoders_ = &encoders;
+        midi_ = &midi;
+        view_ = &view;
+        bind();
+    }
+
+private:
+    oc::api::ButtonAPI* buttons_ = nullptr;
+    oc::api::EncoderAPI* encoders_ = nullptr;
+    oc::api::MidiAPI* midi_ = nullptr;
+    View* view_ = nullptr;
+
     void bind() {
         bindEncoders();
         bindButtons();
     }
-
-private:
-    oc::api::ButtonAPI& buttons_;
-    oc::api::EncoderAPI& encoders_;
-    oc::api::MidiAPI& midi_;
-    View& view_;
 
     // ═══════════════════════════════════════════════════════════════════
     // Encoders: auto-bind ENCODERS[] -> MIDI CC + view
@@ -61,18 +73,17 @@ private:
 
     void bindEncoders() {
         for (size_t i = 0; i < ENCODER_COUNT; ++i) {
-            encoders_.encoder(Config::Encoder::ENCODERS[i].id)
+            encoders_->encoder(Config::Encoder::ENCODERS[i].id)
                 .turn()
                 .then([this, i](float value) {
                     sendEncoderCC(i, value);
-                    view_.setEncoder(i, value);
+                    view_->setEncoder(i, value);
                 });
         }
     }
 
-    /// Auto-generated: Config::Midi::ENC_CC_RANGE_START + index
     void sendEncoderCC(size_t index, float value) {
-        midi_.sendCC(
+        midi_->sendCC(
             Config::Midi::CHANNEL,
             Config::Midi::ENC_CC_RANGE_START + index,
             uint8_t(value * 127)
@@ -87,33 +98,31 @@ private:
         for (size_t i = 0; i < BUTTON_COUNT; ++i) {
             auto id = Config::Button::BUTTONS[i].id;
 
-            buttons_.button(id)
+            buttons_->button(id)
                 .press()
                 .then([this, i] {
                     sendButtonCC(i, 127);
-                    view_.setButton(i, true);
+                    view_->setButton(i, true);
                     onButtonPress(i);
                 });
 
-            buttons_.button(id)
+            buttons_->button(id)
                 .release()
                 .then([this, i] {
                     sendButtonCC(i, 0);
-                    view_.setButton(i, false);
+                    view_->setButton(i, false);
                 });
         }
     }
 
-    /// Auto-generated: Config::Midi::BTN_CC_RANGE_START + index
     void sendButtonCC(size_t index, uint8_t value) {
-        midi_.sendCC(
+        midi_->sendCC(
             Config::Midi::CHANNEL,
             Config::Midi::BTN_CC_RANGE_START + index,
             value
         );
     }
 
-    /// Button actions - customize per button index
     void onButtonPress(size_t index) {
         if (index == 0) {
             resetAllEncoders();
@@ -122,9 +131,9 @@ private:
 
     void resetAllEncoders() {
         for (size_t i = 0; i < ENCODER_COUNT; ++i) {
-            encoders_.setPosition(Config::Encoder::ENCODERS[i].id, View::DEFAULT_VALUE);
+            encoders_->setPosition(Config::Encoder::ENCODERS[i].id, View::DEFAULT_VALUE);
         }
-        view_.resetEncoderPositions();
+        view_->resetEncoderPositions();
     }
 };
 

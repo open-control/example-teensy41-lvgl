@@ -8,7 +8,6 @@
  * Auto-generated from Config::Button::BUTTONS array.
  */
 
-#include <lvgl.h>
 #include <oc/ui/lvgl/IWidget.hpp>
 
 namespace ui {

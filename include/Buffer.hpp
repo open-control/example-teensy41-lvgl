@@ -6,7 +6,7 @@
  */
 
 #include <Arduino.h>
-#include <lvgl.h>
+
 #include "Config.hpp"
 
 namespace Buffer {

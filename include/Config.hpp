@@ -11,7 +11,6 @@
  */
 
 #include <array>
-#include <lvgl.h>
 
 #include <oc/common/ButtonDef.hpp>
 #include <oc/common/EncoderDef.hpp>

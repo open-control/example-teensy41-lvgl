@@ -20,7 +20,6 @@
 #include <string>
 #include <vector>
 
-#include <lvgl.h>
 #include <oc/ui/lvgl/IView.hpp>
 
 namespace ui {
@@ -29,6 +28,10 @@ namespace ui {
  * @brief Full-screen view with buttons and encoder sliders
  *
  * Auto-generates UI from Config::Button::BUTTONS and Config::Encoder::ENCODERS.
+ *
+ * Uses two-phase initialization for use as direct class member:
+ * 1. Default construct
+ * 2. Call onActivate() to create LVGL widgets
  */
 class DemoView : public oc::ui::lvgl::IView {
 public:
@@ -36,7 +39,8 @@ public:
     static constexpr size_t ENCODER_COUNT = Config::Encoder::ENCODERS.size();
     static constexpr float DEFAULT_VALUE = 0.5f;
 
-    DemoView() { create(); }
+    /// Default constructor - call onActivate() to create widgets
+    DemoView() = default;
     ~DemoView() override { destroy(); }
 
     // ═══════════════════════════════════════════════════════════════════
@@ -50,9 +54,10 @@ public:
     // ═══════════════════════════════════════════════════════════════════
 
     void onActivate() override {
-        if (container_) {
-            lv_obj_clear_flag(container_, LV_OBJ_FLAG_HIDDEN);
+        if (!container_) {
+            create();
         }
+        lv_obj_clear_flag(container_, LV_OBJ_FLAG_HIDDEN);
     }
 
     void onDeactivate() override {
