@@ -25,6 +25,7 @@
 
 #include <Arduino.h>
 #include <oc/app/OpenControlApp.hpp>
+#include <oc/core/Result.hpp>
 #include <oc/teensy/Teensy.hpp>
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -49,9 +50,9 @@ static std::optional<oc::app::OpenControlApp> app;
  * Uses triple buffering (framebuffer + 2 diff buffers) for tear-free updates.
  * The driver handles SPI DMA transfers in the background.
  *
- * @return true if display initialized successfully
+ * @return Result<void> - ok() on success, err() on failure
  */
-static bool initDisplay() {
+static oc::core::Result<void> initDisplay() {
     using oc::teensy::Ili9341;
 
     display = Ili9341(
@@ -67,9 +68,9 @@ static bool initDisplay() {
  * Bridge handles lv_init(), tick callback, and display driver setup.
  * Uses the LVGL buffer allocated in DMAMEM for optimal performance.
  *
- * @return true if LVGL initialized successfully
+ * @return Result<void> - ok() on success, err() on failure
  */
-static bool initLVGL() {
+static oc::core::Result<void> initLVGL() {
     using oc::ui::lvgl::Bridge;
     using oc::teensy::defaultTimeProvider;
 
@@ -84,9 +85,9 @@ static bool initLVGL() {
  * Creates the application with all hardware drivers, registers the
  * standalone context, and starts the context lifecycle.
  *
- * @return true if application started successfully
+ * @return Result<void> - ok() on success, err() on failure
  */
-static bool initApp() {
+static oc::core::Result<void> initApp() {
     app = oc::teensy::AppBuilder()
               .midi()
               .encoders(Config::Encoder::ENCODERS)
@@ -109,16 +110,16 @@ void setup() {
                   Config::Timing::APP_HZ, Config::Timing::LVGL_HZ);
 
     // Initialize in dependency order, halt on failure
-    if (!initDisplay()) {
-        Serial.println("[ERROR] Display init failed");
+    if (auto r = initDisplay(); !r) {
+        Serial.printf("[ERROR] Display: %s\n", oc::core::errorCodeToString(r.error().code));
         while (true);
     }
-    if (!initLVGL()) {
-        Serial.println("[ERROR] LVGL init failed");
+    if (auto r = initLVGL(); !r) {
+        Serial.printf("[ERROR] LVGL: %s\n", oc::core::errorCodeToString(r.error().code));
         while (true);
     }
-    if (!initApp()) {
-        Serial.println("[ERROR] App init failed");
+    if (auto r = initApp(); !r) {
+        Serial.printf("[ERROR] App: %s\n", oc::core::errorCodeToString(r.error().code));
         while (true);
     }
 
