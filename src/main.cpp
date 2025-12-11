@@ -15,6 +15,11 @@
  *
  * The main loop runs at APP_HZ for responsive encoder tracking,
  * while LVGL refreshes at the lower LVGL_HZ to save CPU cycles.
+ *
+ * NOTE: Enable -D OC_LOG in platformio.ini build_flags to see debug output.
+ *       Remove it for production (zero overhead, instant boot).
+ *
+ * Hardware configuration is in Config.hpp - ADAPT pins to your wiring.
  */
 
 #include "Buffer.hpp"
@@ -23,10 +28,9 @@
 
 #include <optional>
 
-#include <Arduino.h>
+#include <oc/teensy/Teensy.hpp>
 #include <oc/app/OpenControlApp.hpp>
 #include <oc/core/Result.hpp>
-#include <oc/teensy/Teensy.hpp>
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Static Objects
@@ -41,61 +45,38 @@ static std::optional<oc::ui::lvgl::Bridge> lvgl;
 static std::optional<oc::app::OpenControlApp> app;
 
 // ═══════════════════════════════════════════════════════════════════════════
-// Initialization
+// Initialization helpers
 // ═══════════════════════════════════════════════════════════════════════════
 
-/**
- * @brief Initialize ILI9341 display with DMA acceleration
- *
- * Uses triple buffering (framebuffer + 2 diff buffers) for tear-free updates.
- * The driver handles SPI DMA transfers in the background.
- *
- * @return Result<void> - ok() on success, err() on failure
- */
-static oc::core::Result<void> initDisplay() {
-    using oc::teensy::Ili9341;
+// Check result and halt on error (embedded systems have no recovery)
+static void checkOrHalt(const oc::core::Result<void>& result, const char* component) {
+    if (!result) {
+        OC_LOG_ERROR("{} init failed: {}", component, oc::core::errorCodeToString(result.error().code));
+        while (true) {}
+    }
+}
 
-    display = Ili9341(
+static void initDisplay() {
+    display = oc::teensy::Ili9341(
         Config::Display::CONFIG,
         {.framebuffer = Buffer::framebuffer, .diff1 = Buffer::diff1, .diff2 = Buffer::diff2});
-
-    return display->init();
+    checkOrHalt(display->init(), "Display");
 }
 
-/**
- * @brief Initialize LVGL graphics library
- *
- * Bridge handles lv_init(), tick callback, and display driver setup.
- * Uses the LVGL buffer allocated in DMAMEM for optimal performance.
- *
- * @return Result<void> - ok() on success, err() on failure
- */
-static oc::core::Result<void> initLVGL() {
-    using oc::ui::lvgl::Bridge;
-    using oc::teensy::defaultTimeProvider;
-
-    lvgl = Bridge(*display, Buffer::lvgl, defaultTimeProvider, Config::LVGL::CONFIG);
-
-    return lvgl->init();
+static void initLVGL() {
+    lvgl = oc::ui::lvgl::Bridge(*display, Buffer::lvgl, oc::teensy::defaultTimeProvider, Config::LVGL::CONFIG);
+    checkOrHalt(lvgl->init(), "LVGL");
 }
 
-/**
- * @brief Build and initialize the Open Control application
- *
- * Creates the application with all hardware drivers, registers the
- * standalone context, and starts the context lifecycle.
- *
- * @return Result<void> - ok() on success, err() on failure
- */
-static oc::core::Result<void> initApp() {
+static void initApp() {
     app = oc::teensy::AppBuilder()
-              .midi()
-              .encoders(Config::Encoder::ENCODERS)
-              .buttons(Config::Button::BUTTONS, Config::Timing::DEBOUNCE_MS)
-              .inputConfig(Config::Input::CONFIG);
+        .midi()
+        .encoders(Config::Encoder::ENCODERS)
+        .buttons(Config::Button::BUTTONS, Config::Timing::DEBOUNCE_MS)
+        .inputConfig(Config::Input::CONFIG);
 
     app->registerContext<context::StandaloneContext>(Config::ContextID::STANDALONE, "Standalone");
-    return app->begin();
+    app->begin();
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
@@ -103,27 +84,13 @@ static oc::core::Result<void> initApp() {
 // ═══════════════════════════════════════════════════════════════════════════
 
 void setup() {
-    // Wait for serial with timeout for standalone operation
-    while (!Serial && millis() < 3000) {}
+    OC_LOG_INFO("LVGL Example");
 
-    Serial.printf("\n[Open Control] App %luHz, LVGL %luHz\n\n",
-                  Config::Timing::APP_HZ, Config::Timing::LVGL_HZ);
+    initDisplay();
+    initLVGL();
+    initApp();
 
-    // Initialize in dependency order, halt on failure
-    if (auto r = initDisplay(); !r) {
-        Serial.printf("[ERROR] Display: %s\n", oc::core::errorCodeToString(r.error().code));
-        while (true);
-    }
-    if (auto r = initLVGL(); !r) {
-        Serial.printf("[ERROR] LVGL: %s\n", oc::core::errorCodeToString(r.error().code));
-        while (true);
-    }
-    if (auto r = initApp(); !r) {
-        Serial.printf("[ERROR] App: %s\n", oc::core::errorCodeToString(r.error().code));
-        while (true);
-    }
-
-    Serial.println("[OK] Ready\n");
+    OC_LOG_INFO("Ready");
 }
 
 // Timing constants for main loop
