@@ -12,10 +12,10 @@
 
 #include <array>
 
-#include <oc/common/ButtonDef.hpp>
-#include <oc/common/EncoderDef.hpp>
+#include <oc/hal/common/ButtonDef.hpp>
+#include <oc/hal/common/EncoderDef.hpp>
 #include <oc/core/input/InputConfig.hpp>
-#include <oc/teensy/Ili9341.hpp>
+#include <oc/hal/teensy/Ili9341.hpp>
 #include <oc/ui/lvgl/Bridge.hpp>
 
 namespace Config {
@@ -76,7 +76,7 @@ enum class ContextID : uint8_t {
  *   - Tearing: Adjust refreshRate to match actual display capability and/or increase vsync to 2
  */
 namespace Display {
-constexpr oc::teensy::Ili9341Config CONFIG = {
+constexpr oc::hal::teensy::Ili9341Config CONFIG = {
     .width = 320,
     .height = 240,
 
@@ -156,7 +156,7 @@ enum class EncoderID : uint16_t {
  *   - Skipping steps: Reduce ticksPerEvent or increase APP_HZ
  */
 namespace Encoder {
-using namespace oc::common;
+using namespace oc::hal::common;
 
 // Shared parameters
 constexpr uint16_t PPR = 24;  // CRITICAL: Must match encoder datasheet
@@ -201,7 +201,7 @@ enum class ButtonID : uint16_t {
  * Source: MCU (direct GPIO) or MUX (via multiplexer)
  */
 namespace Button {
-using namespace oc::common;
+using namespace oc::hal::common;
 using Source = oc::hal::GpioPin::Source;
 
 constexpr std::array BUTTONS = {

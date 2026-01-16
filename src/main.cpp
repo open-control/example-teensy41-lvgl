@@ -28,7 +28,7 @@
 
 #include <optional>
 
-#include <oc/teensy/Teensy.hpp>
+#include <oc/hal/teensy/Teensy.hpp>
 #include <oc/app/OpenControlApp.hpp>
 #include <oc/core/Result.hpp>
 
@@ -40,7 +40,7 @@
  * Static objects using std::optional for deferred initialization.
  * This pattern allows complex constructors while avoiding global init order issues.
  */
-static std::optional<oc::teensy::Ili9341> display;
+static std::optional<oc::hal::teensy::Ili9341> display;
 static std::optional<oc::ui::lvgl::Bridge> lvgl;
 static std::optional<oc::app::OpenControlApp> app;
 
@@ -57,19 +57,19 @@ static void checkOrHalt(const oc::core::Result<void>& result, const char* compon
 }
 
 static void initDisplay() {
-    display = oc::teensy::Ili9341(
+    display = oc::hal::teensy::Ili9341(
         Config::Display::CONFIG,
         {.framebuffer = Buffer::framebuffer, .diff1 = Buffer::diff1, .diff2 = Buffer::diff2});
     checkOrHalt(display->init(), "Display");
 }
 
 static void initLVGL() {
-    lvgl = oc::ui::lvgl::Bridge(*display, Buffer::lvgl, oc::teensy::defaultTimeProvider, Config::LVGL::CONFIG);
+    lvgl = oc::ui::lvgl::Bridge(*display, Buffer::lvgl, oc::hal::teensy::defaultTimeProvider, Config::LVGL::CONFIG);
     checkOrHalt(lvgl->init(), "LVGL");
 }
 
 static void initApp() {
-    app = oc::teensy::AppBuilder()
+    app = oc::hal::teensy::AppBuilder()
         .midi()
         .encoders(Config::Encoder::ENCODERS)
         .buttons(Config::Button::BUTTONS, Config::Timing::DEBOUNCE_MS)
