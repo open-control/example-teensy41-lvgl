@@ -24,7 +24,7 @@
 #include "handler/Handler.hpp"
 #include "ui/view/DemoView.hpp"
 
-#include <oc/context/IContext.hpp>
+#include <oc/context/ContextBase.hpp>
 #include <oc/context/Requirements.hpp>
 
 namespace context {
@@ -41,7 +41,7 @@ namespace context {
  *   - View and Handler are default-constructed as members
  *   - Actual setup happens in initialize() when APIs are available
  */
-class StandaloneContext : public oc::context::IContext {
+class StandaloneContext : public oc::context::ContextBase {
 public:
     /// Declare required APIs (validated at registration time)
     static constexpr oc::context::Requirements REQUIRES{

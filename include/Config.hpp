@@ -12,8 +12,8 @@
 
 #include <array>
 
-#include <oc/hal/common/ButtonDef.hpp>
-#include <oc/hal/common/EncoderDef.hpp>
+#include <oc/hal/common/embedded/ButtonDef.hpp>
+#include <oc/hal/common/embedded/EncoderDef.hpp>
 #include <oc/core/input/InputConfig.hpp>
 #include <oc/hal/teensy/Ili9341.hpp>
 #include <oc/ui/lvgl/Bridge.hpp>
@@ -156,7 +156,7 @@ enum class EncoderID : uint16_t {
  *   - Skipping steps: Reduce ticksPerEvent or increase APP_HZ
  */
 namespace Encoder {
-using namespace oc::hal::common;
+using namespace oc::hal::common::embedded;
 
 // Shared parameters
 constexpr uint16_t PPR = 24;  // CRITICAL: Must match encoder datasheet
@@ -201,8 +201,8 @@ enum class ButtonID : uint16_t {
  * Source: MCU (direct GPIO) or MUX (via multiplexer)
  */
 namespace Button {
-using namespace oc::hal::common;
-using Source = oc::hal::GpioPin::Source;
+using namespace oc::hal::common::embedded;
+using Source = GpioPin::Source;
 
 constexpr std::array BUTTONS = {
     //        id             pin source        activeLow
@@ -238,7 +238,7 @@ constexpr uint8_t ENC_CC_RANGE_START = 60;  // Encoders: CC 60, 61, 62...
  * doubleTapWindowMs: Max gap between taps (too long delays single-tap response)
  */
 namespace Input {
-constexpr oc::core::InputConfig CONFIG = {.longPressMs = Timing::LONG_PRESS_MS,
+constexpr oc::core::input::InputConfig CONFIG = {.longPressMs = Timing::LONG_PRESS_MS,
                                           .doubleTapWindowMs = Timing::DOUBLE_TAP_MS};
 }
 

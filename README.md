@@ -125,7 +125,7 @@ example-teensy41-lvgl/
 ### Context Implementation
 
 ```cpp
-class StandaloneContext : public oc::context::IContext {
+class StandaloneContext : public oc::interface::IContext {
 public:
     // Declare required APIs (validated at registration)
     static constexpr oc::context::Requirements REQUIRES{
