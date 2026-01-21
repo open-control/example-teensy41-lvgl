@@ -54,10 +54,10 @@ public:
     // IContext Lifecycle
     // ═══════════════════════════════════════════════════════════════════
 
-    oc::Result<void> init() override {
+    oc::type::Result<void> init() override {
         view_.onActivate();
         handler_.setup(buttons(), encoders(), midi(), view_);
-        return oc::Result<void>::ok();
+        return oc::type::Result<void>::ok();
     }
 
     void update() override {

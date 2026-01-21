@@ -30,7 +30,7 @@
 
 #include <oc/hal/teensy/Teensy.hpp>
 #include <oc/app/OpenControlApp.hpp>
-#include <oc/types/Result.hpp>
+#include <oc/type/Result.hpp>
 
 // ═══════════════════════════════════════════════════════════════════════════
 // Static Objects
@@ -49,9 +49,9 @@ static std::optional<oc::app::OpenControlApp> app;
 // ═══════════════════════════════════════════════════════════════════════════
 
 // Check result and halt on error (embedded systems have no recovery)
-static void checkOrHalt(const oc::Result<void>& result, const char* component) {
+static void checkOrHalt(const oc::type::Result<void>& result, const char* component) {
     if (!result) {
-        OC_LOG_ERROR("{} init failed: {}", component, oc::errorCodeToString(result.error().code));
+        OC_LOG_ERROR("{} init failed: {}", component, oc::type::errorCodeToString(result.error().code));
         while (true) {}
     }
 }
