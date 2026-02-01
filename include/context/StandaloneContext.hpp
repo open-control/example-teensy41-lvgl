@@ -64,11 +64,12 @@ public:
         // View updates handled by LVGL refresh
     }
 
-    void cleanup() override {
+    const char* getName() const override { return "Standalone"; }
+
+protected:
+    void onCleanup() override {
         view_.onDeactivate();
     }
-
-    const char* getName() const override { return "Standalone"; }
 
 private:
     ui::DemoView view_;
